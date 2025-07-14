@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication - ML Query Router</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .auth-container {
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        .api-key-display {
+            background-color: var(--bs-dark);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        .permission-badge {
+            font-size: 0.8rem;
+            margin: 0.2rem;
+        }
+        .role-badge {
+            font-size: 0.9rem;
+        }
+        .user-card {
+            transition: transform 0.2s;
+        }
+        .user-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot me-2"></i>ML Query Router
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Home</a>
+                <a class="nav-link" href="/dashboard"><i class="fas fa-chart-line me-1"></i>Dashboard</a>
+                <a class="nav-link" href="/agents"><i class="fas fa-users me-1"></i>Agents</a>
+                <a class="nav-link" href="/models"><i class="fas fa-brain me-1"></i>Models</a>
+                <a class="nav-link" href="/ai-models"><i class="fas fa-microchip me-1"></i>AI Models</a>
+                <a class="nav-link active" href="/auth"><i class="fas fa-key me-1"></i>Auth</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container auth-container">
+        <h1 class="mb-4"><i class="fas fa-key me-2"></i>Authentication & Authorization</h1>
+        
+        <div class="row">
+            <!-- Current User Info -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-user me-2"></i>Current User</h5>
+                    </div>
+                    <div class="card-body" id="currentUserInfo">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Key Management -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-key me-2"></i>API Key Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Your API Key</label>
+                            <div class="api-key-display" id="userApiKey">
+                                <i class="fas fa-spinner fa-spin"></i> Loading...
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-primary" onclick="copyApiKey()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                            <button class="btn btn-outline-warning" onclick="regenerateApiKey()">
+                                <i class="fas fa-sync-alt"></i> Regenerate
+                            </button>
+                            <button class="btn btn-outline-info" onclick="showApiKeyUsage()">
+                                <i class="fas fa-info-circle"></i> Usage
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- JWT Token -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-shield-alt me-2"></i>JWT Token</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="tokenExpiry" class="form-label">Token Expiry (hours)</label>
+                            <select class="form-select" id="tokenExpiry">
+                                <option value="1">1 Hour</option>
+                                <option value="8">8 Hours</option>
+                                <option value="24" selected>24 Hours</option>
+                                <option value="168">1 Week</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="generateJwtToken()">
+                            <i class="fas fa-key"></i> Generate JWT Token
+                        </button>
+                        <div class="mt-3" id="jwtTokenDisplay" style="display: none;">
+                            <label class="form-label">Generated Token</label>
+                            <div class="api-key-display" id="jwtToken"></div>
+                            <button class="btn btn-sm btn-outline-primary mt-2" onclick="copyJwtToken()">
+                                <i class="fas fa-copy"></i> Copy Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Management -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-users me-2"></i>User Management</h5>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                            <i class="fas fa-plus"></i> Create User
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="usersList">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Permissions -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-lock me-2"></i>Your Permissions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="userPermissions">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Usage Statistics -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar me-2"></i>API Usage</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="apiUsageStats">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-spinner fa-spin"></i> Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createUserForm">
+                        <div class="mb-3">
+                            <label for="newUsername" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="newUsername" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="newEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="newPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newRole" class="form-label">Role</label>
+                            <select class="form-select" id="newRole" required>
+                                <option value="">Select Role</option>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                                <option value="readonly">Read Only</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createUser()">Create User</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Usage Modal -->
+    <div class="modal fade" id="apiKeyUsageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">API Key Usage Instructions</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6>Using API Key with curl:</h6>
+                    <pre class="bg-dark text-light p-3 rounded"><code>curl -X POST http://localhost:5000/api/query \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Hello, how are you?"}'</code></pre>
+                    
+                    <h6>Using API Key with Python:</h6>
+                    <pre class="bg-dark text-light p-3 rounded"><code>import requests
+
+headers = {
+    'Authorization': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+}
+
+data = {
+    'query': 'Hello, how are you?'
+}
+
+response = requests.post('http://localhost:5000/api/query', 
+                        headers=headers, json=data)
+print(response.json())</code></pre>
+                    
+                    <h6>Using API Key with JavaScript:</h6>
+                    <pre class="bg-dark text-light p-3 rounded"><code>const response = await fetch('http://localhost:5000/api/query', {
+    method: 'POST',
+    headers: {
+        'Authorization': 'Bearer YOUR_API_KEY',
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        query: 'Hello, how are you?'
+    })
+});
+
+const data = await response.json();
+console.log(data);</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentUser = null;
+        let allUsers = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentUser();
+            loadAllUsers();
+            loadApiUsageStats();
+        });
+
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('/api/auth/current-user');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    currentUser = data.user;
+                    renderCurrentUser(currentUser);
+                    renderUserPermissions(currentUser);
+                } else {
+                    document.getElementById('currentUserInfo').innerHTML = '<p class="text-muted">Not authenticated</p>';
+                }
+            } catch (error) {
+                document.getElementById('currentUserInfo').innerHTML = '<p class="text-danger">Error loading user info</p>';
+            }
+        }
+
+        async function loadAllUsers() {
+            try {
+                const response = await fetch('/api/auth/users');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    allUsers = data.users;
+                    renderAllUsers(allUsers);
+                } else {
+                    document.getElementById('usersList').innerHTML = '<p class="text-muted">Access denied</p>';
+                }
+            } catch (error) {
+                document.getElementById('usersList').innerHTML = '<p class="text-danger">Error loading users</p>';
+            }
+        }
+
+        async function loadApiUsageStats() {
+            try {
+                const response = await fetch('/api/auth/usage-stats');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    renderApiUsageStats(data.stats);
+                } else {
+                    document.getElementById('apiUsageStats').innerHTML = '<p class="text-muted">No usage data available</p>';
+                }
+            } catch (error) {
+                document.getElementById('apiUsageStats').innerHTML = '<p class="text-danger">Error loading usage stats</p>';
+            }
+        }
+
+        function renderCurrentUser(user) {
+            const roleColor = getRoleColor(user.role);
+            const container = document.getElementById('currentUserInfo');
+            
+            container.innerHTML = `
+                <div class="text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-user-circle fa-3x text-muted"></i>
+                    </div>
+                    <h5>${user.username}</h5>
+                    <p class="text-muted">${user.email}</p>
+                    <span class="badge ${roleColor} role-badge">${user.role.toUpperCase()}</span>
+                    <div class="mt-3">
+                        <small class="text-muted">Created: ${formatDate(user.created_at)}</small>
+                        ${user.last_login ? `<br><small class="text-muted">Last login: ${formatDate(user.last_login)}</small>` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Display API key
+            document.getElementById('userApiKey').textContent = user.api_key;
+        }
+
+        function renderUserPermissions(user) {
+            const container = document.getElementById('userPermissions');
+            let html = '';
+            
+            for (const [permission, granted] of Object.entries(user.permissions)) {
+                const badgeClass = granted ? 'bg-success' : 'bg-secondary';
+                const icon = granted ? 'fa-check' : 'fa-times';
+                
+                html += `
+                    <span class="badge ${badgeClass} permission-badge">
+                        <i class="fas ${icon} me-1"></i>${permission.replace('_', ' ')}
+                    </span>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function renderAllUsers(users) {
+            const container = document.getElementById('usersList');
+            let html = '';
+            
+            users.forEach(user => {
+                const roleColor = getRoleColor(user.role);
+                const statusBadge = user.is_active ? 'bg-success' : 'bg-danger';
+                const statusText = user.is_active ? 'Active' : 'Inactive';
+                
+                html += `
+                    <div class="card user-card mb-2">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${user.username}</h6>
+                                    <small class="text-muted">${user.email}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge ${roleColor} me-1">${user.role}</span>
+                                    <span class="badge ${statusBadge}">${statusText}</span>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewUser('${user.id}')">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" onclick="editUser('${user.id}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                ${user.is_active ? 
+                                    `<button class="btn btn-sm btn-outline-danger" onclick="deactivateUser('${user.id}')">
+                                        <i class="fas fa-ban"></i> Deactivate
+                                    </button>` :
+                                    `<button class="btn btn-sm btn-outline-success" onclick="activateUser('${user.id}')">
+                                        <i class="fas fa-check"></i> Activate
+                                    </button>`
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function renderApiUsageStats(stats) {
+            const container = document.getElementById('apiUsageStats');
+            
+            container.innerHTML = `
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <i class="fas fa-chart-line fa-2x text-primary"></i>
+                        </div>
+                        <h6>${stats.total_requests || 0}</h6>
+                        <small class="text-muted">Total Requests</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <i class="fas fa-calendar-day fa-2x text-success"></i>
+                        </div>
+                        <h6>${stats.requests_today || 0}</h6>
+                        <small class="text-muted">Today</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <i class="fas fa-exclamation-triangle fa-2x text-warning"></i>
+                        </div>
+                        <h6>${stats.error_rate || 0}%</h6>
+                        <small class="text-muted">Error Rate</small>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getRoleColor(role) {
+            const colors = {
+                'admin': 'bg-danger',
+                'user': 'bg-primary',
+                'readonly': 'bg-secondary'
+            };
+            return colors[role] || 'bg-secondary';
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString();
+        }
+
+        function copyApiKey() {
+            const apiKey = document.getElementById('userApiKey').textContent;
+            navigator.clipboard.writeText(apiKey).then(() => {
+                showSuccess('API key copied to clipboard');
+            });
+        }
+
+        function copyJwtToken() {
+            const token = document.getElementById('jwtToken').textContent;
+            navigator.clipboard.writeText(token).then(() => {
+                showSuccess('JWT token copied to clipboard');
+            });
+        }
+
+        async function regenerateApiKey() {
+            if (!confirm('Are you sure you want to regenerate your API key? This will invalidate the current key.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/regenerate-api-key', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    document.getElementById('userApiKey').textContent = data.api_key;
+                    showSuccess('API key regenerated successfully');
+                } else {
+                    showError('Failed to regenerate API key: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error regenerating API key: ' + error.message);
+            }
+        }
+
+        async function generateJwtToken() {
+            const expiry = parseInt(document.getElementById('tokenExpiry').value) * 3600; // Convert to seconds
+            
+            try {
+                const response = await fetch('/api/auth/generate-jwt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ expires_in: expiry })
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    document.getElementById('jwtToken').textContent = data.token;
+                    document.getElementById('jwtTokenDisplay').style.display = 'block';
+                    showSuccess('JWT token generated successfully');
+                } else {
+                    showError('Failed to generate JWT token: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error generating JWT token: ' + error.message);
+            }
+        }
+
+        async function createUser() {
+            const userData = {
+                username: document.getElementById('newUsername').value,
+                email: document.getElementById('newEmail').value,
+                password: document.getElementById('newPassword').value,
+                role: document.getElementById('newRole').value
+            };
+            
+            try {
+                const response = await fetch('/api/auth/create-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('User created successfully');
+                    bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+                    document.getElementById('createUserForm').reset();
+                    loadAllUsers();
+                } else {
+                    showError('Failed to create user: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error creating user: ' + error.message);
+            }
+        }
+
+        function showApiKeyUsage() {
+            const modal = new bootstrap.Modal(document.getElementById('apiKeyUsageModal'));
+            modal.show();
+        }
+
+        function viewUser(userId) {
+            // Implementation for viewing user details
+            console.log('View user:', userId);
+        }
+
+        function editUser(userId) {
+            // Implementation for editing user
+            console.log('Edit user:', userId);
+        }
+
+        async function deactivateUser(userId) {
+            if (!confirm('Are you sure you want to deactivate this user?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/auth/users/${userId}/deactivate`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('User deactivated successfully');
+                    loadAllUsers();
+                } else {
+                    showError('Failed to deactivate user: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error deactivating user: ' + error.message);
+            }
+        }
+
+        async function activateUser(userId) {
+            try {
+                const response = await fetch(`/api/auth/users/${userId}/activate`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('User activated successfully');
+                    loadAllUsers();
+                } else {
+                    showError('Failed to activate user: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error activating user: ' + error.message);
+            }
+        }
+
+        function showSuccess(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast position-fixed top-0 end-0 m-3 bg-success text-white';
+            toast.innerHTML = `
+                <div class="toast-body">
+                    <i class="fas fa-check-circle me-2"></i>${message}
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                document.body.removeChild(toast);
+            });
+        }
+
+        function showError(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast position-fixed top-0 end-0 m-3 bg-danger text-white';
+            toast.innerHTML = `
+                <div class="toast-body">
+                    <i class="fas fa-exclamation-triangle me-2"></i>${message}
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                document.body.removeChild(toast);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -14,6 +14,8 @@ import threading
 from ml_router import MLEnhancedQueryRouter
 from config import EnhancedRouterConfig
 from model_manager import ModelManager, ModelType
+from ai_models import AIModelManager, AIProvider
+from auth_system import AuthManager, UserRole
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -42,19 +44,23 @@ db.init_app(app)
 # Simple rate limiting dictionary
 rate_limits = {}
 
-# Global router instance
+# Global instances
 router = None
 router_config = None
 model_manager = None
+ai_model_manager = None
+auth_manager = None
 
 def initialize_router():
     """Initialize the ML router in a background thread"""
-    global router, router_config, model_manager
+    global router, router_config, model_manager, ai_model_manager, auth_manager
     
     try:
         with app.app_context():
             router_config = EnhancedRouterConfig.from_env()
             model_manager = ModelManager(db)
+            ai_model_manager = AIModelManager(db)
+            auth_manager = AuthManager()
             router = MLEnhancedQueryRouter(router_config, model_manager)
             
             # Initialize ML models
@@ -86,6 +92,16 @@ def agents():
 def models():
     """Model management page"""
     return render_template('models.html')
+
+@app.route('/ai-models')
+def ai_models():
+    """AI model management page"""
+    return render_template('ai_models.html')
+
+@app.route('/auth')
+def auth():
+    """Authentication management page"""
+    return render_template('auth.html')
 
 @app.route('/api/query', methods=['POST'])
 def submit_query():
@@ -407,6 +423,317 @@ def get_model_stats():
     except Exception as e:
         logger.error(f"Error getting model stats: {e}")
         return jsonify({'error': 'Failed to get model stats'}), 500
+
+# AI Models API Routes
+@app.route('/api/ai-models', methods=['GET'])
+def get_ai_models():
+    """Get all AI models"""
+    try:
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 503
+        
+        models = ai_model_manager.get_all_models()
+        models_data = []
+        for model in models:
+            models_data.append({
+                'id': model.id,
+                'name': model.name,
+                'provider': model.provider.value,
+                'model_name': model.model_name,
+                'endpoint': model.endpoint,
+                'api_key_env': model.api_key_env,
+                'max_tokens': model.max_tokens,
+                'temperature': model.temperature,
+                'top_p': model.top_p,
+                'context_window': model.context_window,
+                'cost_per_1k_tokens': model.cost_per_1k_tokens,
+                'is_active': model.is_active,
+                'supports_streaming': model.supports_streaming,
+                'supports_system_message': model.supports_system_message
+            })
+        
+        return jsonify({'status': 'success', 'models': models_data})
+        
+    except Exception as e:
+        logger.error(f"Error getting AI models: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to get AI models'}), 500
+
+@app.route('/api/ai-models', methods=['POST'])
+def create_ai_model():
+    """Create a new AI model"""
+    try:
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 503
+        
+        data = request.get_json()
+        required_fields = ['id', 'name', 'provider', 'model_name', 'endpoint']
+        
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        model = ai_model_manager.add_custom_model(
+            model_id=data['id'],
+            name=data['name'],
+            endpoint=data['endpoint'],
+            api_key_env=data.get('api_key_env', ''),
+            model_name=data['model_name'],
+            max_tokens=data.get('max_tokens', 4096),
+            temperature=data.get('temperature', 0.7),
+            custom_headers=data.get('custom_headers', {})
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'AI model created successfully',
+            'model_id': model.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating AI model: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to create AI model'}), 500
+
+@app.route('/api/ai-models/<model_id>', methods=['DELETE'])
+def delete_ai_model(model_id):
+    """Delete an AI model"""
+    try:
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 503
+        
+        success = ai_model_manager.remove_model(model_id)
+        if not success:
+            return jsonify({'error': 'Model not found'}), 404
+        
+        return jsonify({'status': 'success', 'message': 'AI model deleted successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error deleting AI model: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to delete AI model'}), 500
+
+@app.route('/api/ai-models/activate/<model_id>', methods=['POST'])
+def activate_ai_model(model_id):
+    """Activate an AI model"""
+    try:
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 503
+        
+        success = ai_model_manager.set_active_model(model_id)
+        if not success:
+            return jsonify({'error': 'Model not found'}), 404
+        
+        return jsonify({'status': 'success', 'message': 'AI model activated successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error activating AI model: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to activate AI model'}), 500
+
+@app.route('/api/ai-models/active', methods=['GET'])
+def get_active_ai_model():
+    """Get the active AI model"""
+    try:
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 503
+        
+        active_model = ai_model_manager.get_active_model()
+        if not active_model:
+            return jsonify({'status': 'success', 'model': None})
+        
+        model_data = {
+            'id': active_model.id,
+            'name': active_model.name,
+            'provider': active_model.provider.value,
+            'model_name': active_model.model_name,
+            'endpoint': active_model.endpoint,
+            'api_key_env': active_model.api_key_env,
+            'max_tokens': active_model.max_tokens,
+            'temperature': active_model.temperature,
+            'top_p': active_model.top_p,
+            'context_window': active_model.context_window,
+            'cost_per_1k_tokens': active_model.cost_per_1k_tokens,
+            'is_active': active_model.is_active,
+            'supports_streaming': active_model.supports_streaming,
+            'supports_system_message': active_model.supports_system_message
+        }
+        
+        return jsonify({'status': 'success', 'model': model_data})
+        
+    except Exception as e:
+        logger.error(f"Error getting active AI model: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to get active AI model'}), 500
+
+@app.route('/api/ai-models/test/<model_id>', methods=['POST'])
+def test_ai_model(model_id):
+    """Test an AI model"""
+    try:
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 503
+        
+        data = request.get_json()
+        query = data.get('query', 'Hello! Can you confirm you are working correctly?')
+        
+        # Test the model
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(ai_model_manager.generate_response(
+                query=query,
+                model_id=model_id
+            ))
+            return jsonify(result)
+        finally:
+            loop.close()
+        
+    except Exception as e:
+        logger.error(f"Error testing AI model: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to test AI model'}), 500
+
+@app.route('/api/ai-models/api-key-status', methods=['GET'])
+def get_api_key_status():
+    """Get API key status for all providers"""
+    try:
+        providers = {
+            'openai': 'OPENAI_API_KEY',
+            'anthropic': 'ANTHROPIC_API_KEY',
+            'google': 'GEMINI_API_KEY',
+            'xai': 'XAI_API_KEY',
+            'perplexity': 'PERPLEXITY_API_KEY',
+            'cohere': 'COHERE_API_KEY',
+            'mistral': 'MISTRAL_API_KEY',
+            'huggingface': 'HUGGINGFACE_API_KEY'
+        }
+        
+        status_info = {}
+        for provider, env_var in providers.items():
+            api_key = os.getenv(env_var)
+            status_info[provider] = {
+                'available': bool(api_key),
+                'message': 'API key configured' if api_key else 'API key not configured'
+            }
+        
+        # Ollama is always available (local)
+        status_info['ollama'] = {
+            'available': True,
+            'message': 'Local endpoint'
+        }
+        
+        return jsonify({'status': 'success', 'status_info': status_info})
+        
+    except Exception as e:
+        logger.error(f"Error getting API key status: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to get API key status'}), 500
+
+# Authentication API Routes
+@app.route('/api/auth/current-user', methods=['GET'])
+def get_current_user():
+    """Get current user info"""
+    try:
+        if not auth_manager:
+            return jsonify({'error': 'Auth manager not initialized'}), 503
+        
+        # For now, return the admin user
+        admin_user = auth_manager.users.get('admin')
+        if not admin_user:
+            return jsonify({'status': 'error', 'error': 'No user found'}), 404
+        
+        user_data = {
+            'id': admin_user.id,
+            'username': admin_user.username,
+            'email': admin_user.email,
+            'role': admin_user.role.value,
+            'api_key': admin_user.api_key,
+            'created_at': admin_user.created_at.isoformat(),
+            'last_login': admin_user.last_login.isoformat() if admin_user.last_login else None,
+            'is_active': admin_user.is_active,
+            'permissions': admin_user.permissions
+        }
+        
+        return jsonify({'status': 'success', 'user': user_data})
+        
+    except Exception as e:
+        logger.error(f"Error getting current user: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to get current user'}), 500
+
+@app.route('/api/auth/users', methods=['GET'])
+def get_all_users():
+    """Get all users"""
+    try:
+        if not auth_manager:
+            return jsonify({'error': 'Auth manager not initialized'}), 503
+        
+        users = auth_manager.get_all_users()
+        users_data = []
+        
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role.value,
+                'created_at': user.created_at.isoformat(),
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+                'is_active': user.is_active
+            })
+        
+        return jsonify({'status': 'success', 'users': users_data})
+        
+    except Exception as e:
+        logger.error(f"Error getting users: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to get users'}), 500
+
+@app.route('/api/auth/regenerate-api-key', methods=['POST'])
+def regenerate_api_key():
+    """Regenerate API key for current user"""
+    try:
+        if not auth_manager:
+            return jsonify({'error': 'Auth manager not initialized'}), 503
+        
+        # For now, regenerate for admin user
+        new_api_key = auth_manager.regenerate_api_key('admin')
+        if not new_api_key:
+            return jsonify({'status': 'error', 'error': 'Failed to regenerate API key'}), 500
+        
+        return jsonify({'status': 'success', 'api_key': new_api_key})
+        
+    except Exception as e:
+        logger.error(f"Error regenerating API key: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to regenerate API key'}), 500
+
+@app.route('/api/auth/generate-jwt', methods=['POST'])
+def generate_jwt():
+    """Generate JWT token"""
+    try:
+        if not auth_manager:
+            return jsonify({'error': 'Auth manager not initialized'}), 503
+        
+        data = request.get_json()
+        expires_in = data.get('expires_in', 3600)
+        
+        # For now, generate for admin user
+        token = auth_manager.generate_jwt_token('admin', expires_in)
+        
+        return jsonify({'status': 'success', 'token': token})
+        
+    except Exception as e:
+        logger.error(f"Error generating JWT: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to generate JWT'}), 500
+
+@app.route('/api/auth/usage-stats', methods=['GET'])
+def get_usage_stats():
+    """Get API usage statistics"""
+    try:
+        # Return mock data for now
+        stats = {
+            'total_requests': 150,
+            'requests_today': 25,
+            'error_rate': 2.5
+        }
+        
+        return jsonify({'status': 'success', 'stats': stats})
+        
+    except Exception as e:
+        logger.error(f"Error getting usage stats: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to get usage stats'}), 500
 
 # Error handlers
 @app.errorhandler(404)

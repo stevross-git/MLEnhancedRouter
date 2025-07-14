@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Models - ML Query Router</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .provider-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .model-card {
+            transition: transform 0.2s;
+        }
+        .model-card:hover {
+            transform: translateY(-2px);
+        }
+        .active-model {
+            border: 2px solid var(--bs-primary);
+            background-color: var(--bs-primary-bg-subtle);
+        }
+        .cost-indicator {
+            font-size: 0.8rem;
+            color: var(--bs-secondary);
+        }
+        .context-window {
+            font-size: 0.75rem;
+            color: var(--bs-info);
+        }
+        .api-key-status {
+            font-size: 0.75rem;
+        }
+        .available { color: var(--bs-success); }
+        .unavailable { color: var(--bs-danger); }
+        .model-config {
+            background-color: var(--bs-dark);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot me-2"></i>ML Query Router
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/"><i class="fas fa-home me-1"></i>Home</a>
+                <a class="nav-link" href="/dashboard"><i class="fas fa-chart-line me-1"></i>Dashboard</a>
+                <a class="nav-link" href="/agents"><i class="fas fa-users me-1"></i>Agents</a>
+                <a class="nav-link" href="/models"><i class="fas fa-brain me-1"></i>Models</a>
+                <a class="nav-link active" href="/ai-models"><i class="fas fa-microchip me-1"></i>AI Models</a>
+                <a class="nav-link" href="/auth"><i class="fas fa-key me-1"></i>Auth</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-microchip me-2"></i>AI Models</h1>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" onclick="refreshModels()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModelModal">
+                            <i class="fas fa-plus"></i> Add Custom Model
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Provider Filter -->
+                <div class="mb-4">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterByProvider('all')">All</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('openai')">OpenAI</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('anthropic')">Anthropic</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('google')">Google</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('xai')">xAI</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('perplexity')">Perplexity</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('ollama')">Ollama</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="filterByProvider('custom')">Custom</button>
+                    </div>
+                </div>
+
+                <!-- Models Grid -->
+                <div class="row" id="modelsGrid">
+                    <!-- Models will be populated here -->
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <!-- Active Model Info -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-star me-2"></i>Active Model</h5>
+                    </div>
+                    <div class="card-body" id="activeModelInfo">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Configuration -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cogs me-2"></i>Model Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="modelConfigForm">
+                            <div class="mb-3">
+                                <label for="temperature" class="form-label">Temperature</label>
+                                <input type="range" class="form-range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+                                <div class="form-text">Current: <span id="temperatureValue">0.7</span></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="maxTokens" class="form-label">Max Tokens</label>
+                                <input type="number" class="form-control" id="maxTokens" value="4096" min="1" max="32768">
+                            </div>
+                            <div class="mb-3">
+                                <label for="topP" class="form-label">Top P</label>
+                                <input type="range" class="form-range" id="topP" min="0" max="1" step="0.1" value="0.9">
+                                <div class="form-text">Current: <span id="topPValue">0.9</span></div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="systemMessage" class="form-label">System Message</label>
+                                <textarea class="form-control" id="systemMessage" rows="3" placeholder="Optional system message for the model"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- API Key Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-key me-2"></i>API Key Status</h5>
+                    </div>
+                    <div class="card-body" id="apiKeyStatus">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Custom Model Modal -->
+    <div class="modal fade" id="addModelModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Custom AI Model</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addModelForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="modelId" class="form-label">Model ID</label>
+                                    <input type="text" class="form-control" id="modelId" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="modelName" class="form-label">Display Name</label>
+                                    <input type="text" class="form-control" id="modelName" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="provider" class="form-label">Provider</label>
+                                    <select class="form-select" id="provider" required>
+                                        <option value="">Select Provider</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="anthropic">Anthropic</option>
+                                        <option value="google">Google</option>
+                                        <option value="xai">xAI</option>
+                                        <option value="perplexity">Perplexity</option>
+                                        <option value="ollama">Ollama (Local)</option>
+                                        <option value="cohere">Cohere</option>
+                                        <option value="mistral">Mistral</option>
+                                        <option value="huggingface">Hugging Face</option>
+                                        <option value="custom">Custom Endpoint</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="modelNameApi" class="form-label">API Model Name</label>
+                                    <input type="text" class="form-control" id="modelNameApi" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="endpoint" class="form-label">Endpoint URL</label>
+                            <input type="url" class="form-control" id="endpoint" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="apiKeyEnv" class="form-label">API Key Environment Variable</label>
+                            <input type="text" class="form-control" id="apiKeyEnv" placeholder="e.g., OPENAI_API_KEY">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="maxTokensCustom" class="form-label">Max Tokens</label>
+                                    <input type="number" class="form-control" id="maxTokensCustom" value="4096" min="1">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="contextWindow" class="form-label">Context Window</label>
+                                    <input type="number" class="form-control" id="contextWindow" value="4096" min="1">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="costPerToken" class="form-label">Cost per 1K tokens</label>
+                                    <input type="number" class="form-control" id="costPerToken" value="0.001" step="0.0001" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="customHeaders" class="form-label">Custom Headers (JSON)</label>
+                            <textarea class="form-control" id="customHeaders" rows="3" placeholder='{"Authorization": "Bearer token", "Custom-Header": "value"}'></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="addCustomModel()">Add Model</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentModels = [];
+        let activeModel = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadModels();
+            loadActiveModel();
+            loadApiKeyStatus();
+            
+            // Setup configuration form
+            setupConfigForm();
+        });
+
+        function setupConfigForm() {
+            const temperatureSlider = document.getElementById('temperature');
+            const temperatureValue = document.getElementById('temperatureValue');
+            const topPSlider = document.getElementById('topP');
+            const topPValue = document.getElementById('topPValue');
+            
+            temperatureSlider.addEventListener('input', function() {
+                temperatureValue.textContent = this.value;
+            });
+            
+            topPSlider.addEventListener('input', function() {
+                topPValue.textContent = this.value;
+            });
+            
+            document.getElementById('modelConfigForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveModelConfiguration();
+            });
+        }
+
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/ai-models');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    currentModels = data.models;
+                    renderModels(currentModels);
+                } else {
+                    showError('Failed to load models: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error loading models: ' + error.message);
+            }
+        }
+
+        async function loadActiveModel() {
+            try {
+                const response = await fetch('/api/ai-models/active');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    activeModel = data.model;
+                    renderActiveModel(activeModel);
+                } else {
+                    document.getElementById('activeModelInfo').innerHTML = '<p class="text-muted">No active model</p>';
+                }
+            } catch (error) {
+                document.getElementById('activeModelInfo').innerHTML = '<p class="text-danger">Error loading active model</p>';
+            }
+        }
+
+        async function loadApiKeyStatus() {
+            try {
+                const response = await fetch('/api/ai-models/api-key-status');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    renderApiKeyStatus(data.status_info);
+                } else {
+                    document.getElementById('apiKeyStatus').innerHTML = '<p class="text-danger">Error loading API key status</p>';
+                }
+            } catch (error) {
+                document.getElementById('apiKeyStatus').innerHTML = '<p class="text-danger">Error loading API key status</p>';
+            }
+        }
+
+        function renderModels(models) {
+            const grid = document.getElementById('modelsGrid');
+            grid.innerHTML = '';
+            
+            models.forEach(model => {
+                const isActive = activeModel && activeModel.id === model.id;
+                const providerColor = getProviderColor(model.provider);
+                
+                const card = document.createElement('div');
+                card.className = `col-md-6 mb-3 model-card-wrapper`;
+                card.setAttribute('data-provider', model.provider);
+                
+                card.innerHTML = `
+                    <div class="card h-100 model-card ${isActive ? 'active-model' : ''}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">${model.name}</h6>
+                            <span class="badge ${providerColor} provider-badge">${model.provider}</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-2">${model.model_name}</p>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="cost-indicator">
+                                    <i class="fas fa-dollar-sign"></i> ${model.cost_per_1k_tokens.toFixed(4)}/1K tokens
+                                </span>
+                                <span class="context-window">
+                                    <i class="fas fa-memory"></i> ${formatContextWindow(model.context_window)}
+                                </span>
+                            </div>
+                            <div class="api-key-status mb-3">
+                                <span class="badge ${getApiKeyStatus(model) ? 'bg-success' : 'bg-danger'}">
+                                    <i class="fas fa-key"></i> ${getApiKeyStatus(model) ? 'API Key OK' : 'API Key Missing'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btn-group w-100">
+                                <button class="btn btn-sm ${isActive ? 'btn-success' : 'btn-outline-primary'}" 
+                                        onclick="setActiveModel('${model.id}')" 
+                                        ${isActive ? 'disabled' : ''}>
+                                    <i class="fas fa-star"></i> ${isActive ? 'Active' : 'Activate'}
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="testModel('${model.id}')">
+                                    <i class="fas fa-vial"></i> Test
+                                </button>
+                                ${model.provider === 'custom' ? `
+                                    <button class="btn btn-sm btn-outline-danger" onclick="removeModel('${model.id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        function renderActiveModel(model) {
+            const container = document.getElementById('activeModelInfo');
+            if (!model) {
+                container.innerHTML = '<p class="text-muted">No active model selected</p>';
+                return;
+            }
+            
+            const providerColor = getProviderColor(model.provider);
+            container.innerHTML = `
+                <div class="text-center">
+                    <h5>${model.name}</h5>
+                    <span class="badge ${providerColor} mb-2">${model.provider}</span>
+                    <p class="text-muted mb-2">${model.model_name}</p>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="cost-indicator">
+                                <i class="fas fa-dollar-sign"></i><br>
+                                $${model.cost_per_1k_tokens.toFixed(4)}/1K
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="context-window">
+                                <i class="fas fa-memory"></i><br>
+                                ${formatContextWindow(model.context_window)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderApiKeyStatus(statusInfo) {
+            const container = document.getElementById('apiKeyStatus');
+            let html = '';
+            
+            for (const [provider, status] of Object.entries(statusInfo)) {
+                const isAvailable = status.available;
+                const statusClass = isAvailable ? 'available' : 'unavailable';
+                const icon = isAvailable ? 'fa-check-circle' : 'fa-times-circle';
+                
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-capitalize">${provider}</span>
+                        <span class="api-key-status ${statusClass}">
+                            <i class="fas ${icon}"></i> ${status.message}
+                        </span>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function getProviderColor(provider) {
+            const colors = {
+                'openai': 'bg-success',
+                'anthropic': 'bg-warning',
+                'google': 'bg-info',
+                'xai': 'bg-primary',
+                'perplexity': 'bg-secondary',
+                'ollama': 'bg-dark',
+                'cohere': 'bg-purple',
+                'mistral': 'bg-danger',
+                'huggingface': 'bg-warning',
+                'custom': 'bg-light text-dark'
+            };
+            return colors[provider] || 'bg-secondary';
+        }
+
+        function getApiKeyStatus(model) {
+            // This would normally check environment variables
+            // For now, we'll simulate based on provider
+            return model.provider === 'ollama' || model.api_key_env === '';
+        }
+
+        function formatContextWindow(tokens) {
+            if (tokens >= 1000000) {
+                return `${(tokens / 1000000).toFixed(1)}M`;
+            } else if (tokens >= 1000) {
+                return `${(tokens / 1000).toFixed(0)}K`;
+            }
+            return tokens.toString();
+        }
+
+        function filterByProvider(provider) {
+            const cards = document.querySelectorAll('.model-card-wrapper');
+            const buttons = document.querySelectorAll('.btn-group button');
+            
+            // Update active button
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Filter cards
+            cards.forEach(card => {
+                if (provider === 'all' || card.getAttribute('data-provider') === provider) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        async function setActiveModel(modelId) {
+            try {
+                const response = await fetch(`/api/ai-models/activate/${modelId}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('Model activated successfully');
+                    loadModels();
+                    loadActiveModel();
+                } else {
+                    showError('Failed to activate model: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error activating model: ' + error.message);
+            }
+        }
+
+        async function testModel(modelId) {
+            try {
+                const response = await fetch(`/api/ai-models/test/${modelId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: 'Hello! Can you confirm you are working correctly?'
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess(`Model test successful: ${data.response.substring(0, 100)}...`);
+                } else {
+                    showError('Model test failed: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error testing model: ' + error.message);
+            }
+        }
+
+        async function removeModel(modelId) {
+            if (!confirm('Are you sure you want to remove this custom model?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/ai-models/${modelId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('Model removed successfully');
+                    loadModels();
+                } else {
+                    showError('Failed to remove model: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error removing model: ' + error.message);
+            }
+        }
+
+        async function addCustomModel() {
+            const form = document.getElementById('addModelForm');
+            const formData = new FormData(form);
+            
+            const modelData = {
+                id: document.getElementById('modelId').value,
+                name: document.getElementById('modelName').value,
+                provider: document.getElementById('provider').value,
+                model_name: document.getElementById('modelNameApi').value,
+                endpoint: document.getElementById('endpoint').value,
+                api_key_env: document.getElementById('apiKeyEnv').value,
+                max_tokens: parseInt(document.getElementById('maxTokensCustom').value),
+                context_window: parseInt(document.getElementById('contextWindow').value),
+                cost_per_1k_tokens: parseFloat(document.getElementById('costPerToken').value)
+            };
+            
+            // Parse custom headers if provided
+            const customHeaders = document.getElementById('customHeaders').value;
+            if (customHeaders) {
+                try {
+                    modelData.custom_headers = JSON.parse(customHeaders);
+                } catch (e) {
+                    showError('Invalid JSON in custom headers');
+                    return;
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/ai-models', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(modelData)
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('Custom model added successfully');
+                    bootstrap.Modal.getInstance(document.getElementById('addModelModal')).hide();
+                    form.reset();
+                    loadModels();
+                } else {
+                    showError('Failed to add model: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error adding model: ' + error.message);
+            }
+        }
+
+        async function saveModelConfiguration() {
+            const config = {
+                temperature: parseFloat(document.getElementById('temperature').value),
+                max_tokens: parseInt(document.getElementById('maxTokens').value),
+                top_p: parseFloat(document.getElementById('topP').value),
+                system_message: document.getElementById('systemMessage').value
+            };
+            
+            try {
+                const response = await fetch('/api/ai-models/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showSuccess('Model configuration saved');
+                } else {
+                    showError('Failed to save configuration: ' + data.error);
+                }
+            } catch (error) {
+                showError('Error saving configuration: ' + error.message);
+            }
+        }
+
+        function refreshModels() {
+            loadModels();
+            loadActiveModel();
+            loadApiKeyStatus();
+        }
+
+        function showSuccess(message) {
+            // Create and show success toast
+            const toast = document.createElement('div');
+            toast.className = 'toast position-fixed top-0 end-0 m-3 bg-success text-white';
+            toast.innerHTML = `
+                <div class="toast-body">
+                    <i class="fas fa-check-circle me-2"></i>${message}
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                document.body.removeChild(toast);
+            });
+        }
+
+        function showError(message) {
+            // Create and show error toast
+            const toast = document.createElement('div');
+            toast.className = 'toast position-fixed top-0 end-0 m-3 bg-danger text-white';
+            toast.innerHTML = `
+                <div class="toast-body">
+                    <i class="fas fa-exclamation-triangle me-2"></i>${message}
+                </div>
+            `;
+            document.body.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                document.body.removeChild(toast);
+            });
+        }
+    </script>
+</body>
+</html>

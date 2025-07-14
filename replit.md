@@ -8,6 +8,16 @@ This is a Flask-based ML-enhanced query routing system that intelligently routes
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (July 14, 2025)
+
+✓ Added comprehensive AI model integration supporting 10+ providers
+✓ Implemented AI model management interface with selection and configuration
+✓ Created authentication system with API key management and JWT tokens
+✓ Added support for OpenAI, Anthropic, Google, xAI, Perplexity, local Ollama, and custom endpoints
+✓ Built AI model testing and validation functionality
+✓ Integrated API key status monitoring across all providers
+✓ Added model activation, configuration, and cost tracking features
+
 ## System Architecture
 
 ### Frontend Architecture
