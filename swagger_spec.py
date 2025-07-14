@@ -829,6 +829,291 @@ swagger_spec = {
                 }
             }
         },
+        "/api/collaborate": {
+            "post": {
+                "tags": ["Collaborative AI"],
+                "summary": "Submit collaborative query",
+                "description": "Submit a query for collaborative AI processing with multiple specialized agents",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {
+                                        "type": "string",
+                                        "description": "The query to process collaboratively",
+                                        "example": "What are the pros and cons of artificial intelligence?"
+                                    },
+                                    "enable_rag": {
+                                        "type": "boolean",
+                                        "description": "Whether to enable RAG (Retrieval-Augmented Generation) for document context",
+                                        "default": False
+                                    },
+                                    "max_agents": {
+                                        "type": "integer",
+                                        "description": "Maximum number of agents to use (only applies to automatic selection)",
+                                        "default": 3,
+                                        "minimum": 1,
+                                        "maximum": 5
+                                    },
+                                    "timeout": {
+                                        "type": "integer",
+                                        "description": "Collaboration timeout in seconds",
+                                        "default": 300,
+                                        "minimum": 60,
+                                        "maximum": 600
+                                    },
+                                    "selected_agents": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "Specific agents to use for collaboration (overrides automatic selection)",
+                                        "example": ["collab_analyst", "collab_technical"],
+                                        "enum": ["collab_analyst", "collab_creative", "collab_technical", "collab_researcher", "collab_synthesizer"]
+                                    }
+                                },
+                                "required": ["query"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Collaborative processing completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/CollaborativeResult"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collaborate/sessions": {
+            "get": {
+                "tags": ["Collaborative AI"],
+                "summary": "Get active collaboration sessions",
+                "description": "Get information about active collaboration sessions",
+                "responses": {
+                    "200": {
+                        "description": "Active sessions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "sessions": {
+                                            "type": "object",
+                                            "additionalProperties": {"$ref": "#/components/schemas/CollaborativeSession"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collaborate/sessions/{session_id}": {
+            "get": {
+                "tags": ["Collaborative AI"],
+                "summary": "Get session details",
+                "description": "Get detailed information about a specific collaboration session",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Session ID"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session details",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/CollaborativeSession"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collaborate/agents": {
+            "get": {
+                "tags": ["Collaborative AI"],
+                "summary": "Get collaborative agent configurations",
+                "description": "Get current configurations for all collaborative agents",
+                "responses": {
+                    "200": {
+                        "description": "Agent configurations",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/CollaborativeAgentConfig"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/collaborate/agents/{agent_id}/model": {
+            "put": {
+                "tags": ["Collaborative AI"],
+                "summary": "Update agent model",
+                "description": "Update the AI model for a specific collaborative agent",
+                "parameters": [
+                    {
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Agent ID"
+                    }
+                ],
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "model_id": {
+                                        "type": "string",
+                                        "description": "ID of the AI model to use"
+                                    }
+                                },
+                                "required": ["model_id"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Agent model updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {"type": "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shared-memory/stats": {
+            "get": {
+                "tags": ["Shared Memory"],
+                "summary": "Get shared memory statistics",
+                "description": "Get statistics about the shared memory system",
+                "responses": {
+                    "200": {
+                        "description": "Shared memory statistics",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "total_messages": {"type": "integer"},
+                                        "active_sessions": {"type": "integer"},
+                                        "agent_contexts": {"type": "integer"},
+                                        "message_index_size": {"type": "integer"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shared-memory/sessions/{session_id}/messages": {
+            "get": {
+                "tags": ["Shared Memory"],
+                "summary": "Get session messages",
+                "description": "Get messages from a specific collaboration session",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Session ID"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "integer", "default": 50},
+                        "description": "Maximum number of messages to return"
+                    },
+                    {
+                        "name": "types",
+                        "in": "query",
+                        "required": False,
+                        "schema": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "description": "Message types to filter by"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session messages",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "session_id": {"type": "string"},
+                                        "messages": {
+                                            "type": "array",
+                                            "items": {"$ref": "#/components/schemas/SharedMemoryMessage"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/shared-memory/sessions/{session_id}/context": {
+            "get": {
+                "tags": ["Shared Memory"],
+                "summary": "Get session context",
+                "description": "Get shared context for a collaboration session",
+                "parameters": [
+                    {
+                        "name": "session_id",
+                        "in": "path",
+                        "required": True,
+                        "schema": {"type": "string"},
+                        "description": "Session ID"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session context",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": True
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "tags": ["System"],
@@ -982,6 +1267,105 @@ swagger_spec = {
                     },
                     "similarity_score": {"type": "number"},
                     "rank": {"type": "integer"}
+                }
+            },
+            "CollaborativeResult": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string"},
+                    "query": {"type": "string"},
+                    "enhanced_query": {"type": "string"},
+                    "final_response": {"type": "string"},
+                    "agents_used": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "agent_responses": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "agent_id": {"type": "string"},
+                                "agent_name": {"type": "string"},
+                                "specialization": {"type": "string"},
+                                "response": {"type": "string"},
+                                "model_used": {"type": "string"},
+                                "response_time": {"type": "number"},
+                                "cached": {"type": "boolean"}
+                            }
+                        }
+                    },
+                    "confidence_score": {"type": "number"},
+                    "rag_used": {"type": "boolean"},
+                    "rag_context": {"type": "string"},
+                    "timestamp": {"type": "string", "format": "date-time"}
+                }
+            },
+            "CollaborativeSession": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "string"},
+                    "query": {"type": "string"},
+                    "agents": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "status": {"type": "string"},
+                    "duration_minutes": {"type": "number"},
+                    "created_at": {"type": "string", "format": "date-time"}
+                }
+            },
+            "CollaborativeAgentConfig": {
+                "type": "object",
+                "properties": {
+                    "agents": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "specialization": {"type": "string"},
+                                "current_model": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "name": {"type": "string"},
+                                        "provider": {"type": "string"}
+                                    }
+                                },
+                                "confidence_threshold": {"type": "number"},
+                                "is_active": {"type": "boolean"},
+                                "current_sessions": {"type": "integer"},
+                                "max_concurrent_sessions": {"type": "integer"}
+                            }
+                        }
+                    },
+                    "available_models": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "name": {"type": "string"},
+                                "provider": {"type": "string"}
+                            }
+                        }
+                    }
+                }
+            },
+            "SharedMemoryMessage": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string"},
+                    "session_id": {"type": "string"},
+                    "message_type": {"type": "string"},
+                    "content": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "timestamp": {"type": "string", "format": "date-time"},
+                    "metadata": {
+                        "type": "object",
+                        "additionalProperties": True
+                    }
                 }
             }
         }
