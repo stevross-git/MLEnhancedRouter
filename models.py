@@ -36,3 +36,18 @@ class RouterMetrics(db.Model):
     metric_value = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
     meta_data = Column(JSON, nullable=True)
+
+class MLModelRegistry(db.Model):
+    """Registry of ML models"""
+    id = Column(String(64), primary_key=True)
+    name = Column(String(128), nullable=False)
+    description = Column(Text, nullable=True)
+    model_type = Column(String(32), nullable=False)
+    categories = Column(JSON, nullable=False)
+    config = Column(JSON, nullable=False)
+    status = Column(String(32), default='inactive')
+    accuracy = Column(Float, nullable=True)
+    is_active = Column(Boolean, default=False)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)

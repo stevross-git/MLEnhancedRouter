@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 import threading
 from ml_router import MLEnhancedQueryRouter
 from config import EnhancedRouterConfig
+from model_manager import ModelManager, ModelType
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -44,14 +45,16 @@ rate_limits = {}
 # Global router instance
 router = None
 router_config = None
+model_manager = None
 
 def initialize_router():
     """Initialize the ML router in a background thread"""
-    global router, router_config
+    global router, router_config, model_manager
     
     try:
         router_config = EnhancedRouterConfig.from_env()
-        router = MLEnhancedQueryRouter(router_config)
+        model_manager = ModelManager()
+        router = MLEnhancedQueryRouter(router_config, model_manager)
         
         # Initialize ML models
         loop = asyncio.new_event_loop()
@@ -80,6 +83,11 @@ def dashboard():
 def agents():
     """Agent management page"""
     return render_template('agents.html')
+
+@app.route('/models')
+def models():
+    """Model management page"""
+    return render_template('models.html')
 
 @app.route('/api/query', methods=['POST'])
 def submit_query():
@@ -236,6 +244,171 @@ def health_check():
     except Exception as e:
         logger.error(f"Health check error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# Model Management API Endpoints
+@app.route('/api/models', methods=['GET'])
+def get_models():
+    """Get all models"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        models = model_manager.get_all_models()
+        return jsonify({
+            'models': [model.to_dict() for model in models]
+        })
+    except Exception as e:
+        logger.error(f"Error getting models: {e}")
+        return jsonify({'error': 'Failed to get models'}), 500
+
+@app.route('/api/models', methods=['POST'])
+def create_model():
+    """Create a new model"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Model data is required'}), 400
+        
+        required_fields = ['name', 'description', 'type', 'categories']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        model_type = ModelType(data['type'])
+        model = model_manager.create_model(
+            name=data['name'],
+            description=data['description'],
+            model_type=model_type,
+            categories=data['categories'],
+            config=data.get('config', {})
+        )
+        
+        return jsonify({
+            'model_id': model.id,
+            'message': 'Model created successfully',
+            'model': model.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating model: {e}")
+        return jsonify({'error': 'Failed to create model'}), 500
+
+@app.route('/api/models/<model_id>', methods=['GET'])
+def get_model(model_id):
+    """Get a specific model"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        model = model_manager.get_model(model_id)
+        if not model:
+            return jsonify({'error': 'Model not found'}), 404
+        
+        return jsonify({'model': model.to_dict()})
+    except Exception as e:
+        logger.error(f"Error getting model: {e}")
+        return jsonify({'error': 'Failed to get model'}), 500
+
+@app.route('/api/models/<model_id>', methods=['PUT'])
+def update_model(model_id):
+    """Update a model"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Model data is required'}), 400
+        
+        model_type = ModelType(data['type']) if 'type' in data else None
+        
+        model = model_manager.update_model(
+            model_id=model_id,
+            name=data.get('name'),
+            description=data.get('description'),
+            model_type=model_type,
+            config=data.get('config')
+        )
+        
+        if not model:
+            return jsonify({'error': 'Model not found'}), 404
+        
+        return jsonify({
+            'message': 'Model updated successfully',
+            'model': model.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating model: {e}")
+        return jsonify({'error': 'Failed to update model'}), 500
+
+@app.route('/api/models/<model_id>', methods=['DELETE'])
+def delete_model(model_id):
+    """Delete a model"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        success = model_manager.delete_model(model_id)
+        if not success:
+            return jsonify({'error': 'Model not found or cannot be deleted'}), 404
+        
+        return jsonify({'message': 'Model deleted successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error deleting model: {e}")
+        return jsonify({'error': 'Failed to delete model'}), 500
+
+@app.route('/api/models/<model_id>/activate', methods=['POST'])
+def activate_model(model_id):
+    """Activate a model"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        success = model_manager.activate_model(model_id)
+        if not success:
+            return jsonify({'error': 'Model not found'}), 404
+        
+        return jsonify({'message': 'Model activated successfully'})
+        
+    except Exception as e:
+        logger.error(f"Error activating model: {e}")
+        return jsonify({'error': 'Failed to activate model'}), 500
+
+@app.route('/api/models/<model_id>/train', methods=['POST'])
+def train_model(model_id):
+    """Train a model"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        success = model_manager.train_model(model_id)
+        if not success:
+            return jsonify({'error': 'Model not found'}), 404
+        
+        return jsonify({'message': 'Model training started'})
+        
+    except Exception as e:
+        logger.error(f"Error training model: {e}")
+        return jsonify({'error': 'Failed to train model'}), 500
+
+@app.route('/api/models/stats', methods=['GET'])
+def get_model_stats():
+    """Get model statistics"""
+    try:
+        if not model_manager:
+            return jsonify({'error': 'Model manager not initialized'}), 503
+        
+        stats = model_manager.get_model_stats()
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting model stats: {e}")
+        return jsonify({'error': 'Failed to get model stats'}), 500
 
 # Error handlers
 @app.errorhandler(404)

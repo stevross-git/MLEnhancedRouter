@@ -145,10 +145,11 @@ class MLQueryClassifier:
 class MLEnhancedQueryRouter:
     """ML-Enhanced Query Router with intelligent agent selection"""
     
-    def __init__(self, config):
+    def __init__(self, config, model_manager=None):
         self.config = config
         self.agents: Dict[str, Agent] = {}
         self.ml_classifier = MLQueryClassifier(config)
+        self.model_manager = model_manager
         
         # Caching
         self.cache = {}
@@ -284,8 +285,16 @@ class MLEnhancedQueryRouter:
             
             self.cache_misses += 1
             
-            # Classify the query
-            category, confidence = await self.ml_classifier.classify_query(query)
+            # Classify the query using model manager if available
+            if self.model_manager:
+                category_str, confidence = self.model_manager.classify_query(query)
+                try:
+                    category = QueryCategory(category_str)
+                except ValueError:
+                    category = QueryCategory.CONVERSATIONAL
+            else:
+                category, confidence = await self.ml_classifier.classify_query(query)
+            
             self.category_stats[category.value] += 1
             
             # Find suitable agents
