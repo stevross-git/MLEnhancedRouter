@@ -16,6 +16,7 @@ from config import EnhancedRouterConfig
 from model_manager import ModelManager, ModelType
 from ai_models import AIModelManager, AIProvider
 from auth_system import AuthManager, UserRole
+from ai_cache import get_cache_manager
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -50,10 +51,11 @@ router_config = None
 model_manager = None
 ai_model_manager = None
 auth_manager = None
+cache_manager = None
 
 def initialize_router():
     """Initialize the ML router in a background thread"""
-    global router, router_config, model_manager, ai_model_manager, auth_manager
+    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager
     
     try:
         with app.app_context():
@@ -61,6 +63,7 @@ def initialize_router():
             model_manager = ModelManager(db)
             ai_model_manager = AIModelManager(db)
             auth_manager = AuthManager()
+            cache_manager = get_cache_manager()
             router = MLEnhancedQueryRouter(router_config, model_manager)
             
             # Initialize ML models
@@ -1104,6 +1107,49 @@ def internal_error(error):
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({'error': 'Rate limit exceeded'}), 429
+
+# Cache Management Endpoints
+@app.route('/api/cache/stats')
+def get_cache_stats():
+    """Get cache statistics"""
+    if not cache_manager:
+        return jsonify({'error': 'Cache manager not initialized'}), 500
+    
+    try:
+        stats = cache_manager.get_stats()
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cache/entries')
+def get_cache_entries():
+    """Get cache entries"""
+    if not cache_manager:
+        return jsonify({'error': 'Cache manager not initialized'}), 500
+    
+    try:
+        model_id = request.args.get('model_id')
+        limit = int(request.args.get('limit', 100))
+        
+        entries = cache_manager.get_cache_entries(model_id=model_id, limit=limit)
+        return jsonify(entries)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/cache/clear', methods=['POST'])
+def clear_cache():
+    """Clear cache entries"""
+    if not cache_manager:
+        return jsonify({'error': 'Cache manager not initialized'}), 500
+    
+    try:
+        data = request.get_json() or {}
+        model_id = data.get('model_id')
+        
+        cache_manager.clear(model_id=model_id)
+        return jsonify({'status': 'success', 'message': 'Cache cleared successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Initialize database
 with app.app_context():

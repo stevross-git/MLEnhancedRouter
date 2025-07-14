@@ -80,6 +80,10 @@
                         <i class="fas fa-tachometer-alt me-2"></i>
                         Performance
                     </a>
+                    <a href="#cache" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-database me-2"></i>
+                        Cache Management
+                    </a>
                 </div>
             </div>
         </div>
@@ -400,6 +404,145 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Cache Management Tab -->
+            <div class="tab-pane fade" id="cache">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-database me-2"></i>
+                            AI Response Cache Management
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Cache management helps optimize AI response times and reduce API costs by storing frequently requested responses.
+                        </div>
+
+                        <!-- Cache Statistics -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Total Entries</h6>
+                                        <h4 id="cache-total-entries">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Valid Entries</h6>
+                                        <h4 id="cache-valid-entries">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Cache Type</h6>
+                                        <h4 id="cache-type">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body">
+                                        <h6 class="card-title">TTL (seconds)</h6>
+                                        <h4 id="cache-ttl-display">-</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cache Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Cache Controls</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="cache-model-filter" class="form-label">Filter by Model</label>
+                                            <select class="form-select" id="cache-model-filter">
+                                                <option value="">All Models</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="d-grid gap-2">
+                                            <button type="button" class="btn btn-primary" onclick="loadCacheStats()">
+                                                <i class="fas fa-sync me-1"></i>
+                                                Refresh Statistics
+                                            </button>
+                                            <button type="button" class="btn btn-warning" onclick="clearCache()">
+                                                <i class="fas fa-trash me-1"></i>
+                                                Clear Cache
+                                            </button>
+                                            <button type="button" class="btn btn-danger" onclick="clearAllCache()">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                Clear All Cache
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Cache Performance</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <small class="text-muted">Average Hit Count</small>
+                                            <div class="fw-bold" id="cache-avg-hits">-</div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <small class="text-muted">Memory Usage</small>
+                                            <div class="fw-bold" id="cache-memory-usage">-</div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <small class="text-muted">Expired Entries</small>
+                                            <div class="fw-bold" id="cache-expired-entries">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Cache Entries -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="card-title mb-0">Recent Cache Entries</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Query</th>
+                                                <th>Model</th>
+                                                <th>Created</th>
+                                                <th>Expires</th>
+                                                <th>Hits</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cache-entries-table">
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>
+                                                    Loading cache entries...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -409,6 +552,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     loadAPIKeyStatus();
     loadAvailableModels();
+    loadCacheStats();
+    loadCacheEntries();
     
     // Ensure all form elements have proper dark theme styling
     const formElements = document.querySelectorAll('select, input[type="number"], input[type="range"]');
@@ -592,5 +737,115 @@ document.getElementById('performance-settings-form').addEventListener('submit', 
     
     this.insertBefore(alert, this.firstChild);
 });
+
+// Cache management functions
+function loadCacheStats() {
+    fetch('/api/cache/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('cache-total-entries').textContent = data.total_entries || 0;
+            document.getElementById('cache-valid-entries').textContent = data.valid_entries || 0;
+            document.getElementById('cache-type').textContent = data.cache_type || 'sqlite';
+            document.getElementById('cache-ttl-display').textContent = data.ttl_seconds || 3600;
+            document.getElementById('cache-avg-hits').textContent = data.average_hit_count || 0;
+            document.getElementById('cache-expired-entries').textContent = data.expired_entries || 0;
+            
+            // Update memory usage display
+            const memoryUsage = data.memory_usage_mb || 0;
+            document.getElementById('cache-memory-usage').textContent = memoryUsage > 0 ? `${memoryUsage.toFixed(2)} MB` : 'N/A';
+        })
+        .catch(error => {
+            console.error('Error loading cache stats:', error);
+        });
+}
+
+function loadCacheEntries() {
+    const modelFilter = document.getElementById('cache-model-filter').value;
+    const url = `/api/cache/entries?limit=50${modelFilter ? `&model_id=${modelFilter}` : ''}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('cache-entries-table');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No cache entries found</td></tr>';
+                return;
+            }
+            
+            data.forEach(entry => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><small>${entry.query}</small></td>
+                    <td><span class="badge bg-secondary">${entry.model_id}</span></td>
+                    <td><small>${new Date(entry.created_at).toLocaleString()}</small></td>
+                    <td><small>${new Date(entry.expires_at).toLocaleString()}</small></td>
+                    <td>${entry.hit_count || 0}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading cache entries:', error);
+            document.getElementById('cache-entries-table').innerHTML = 
+                '<tr><td colspan="5" class="text-center text-danger">Error loading cache entries</td></tr>';
+        });
+}
+
+function clearCache() {
+    const modelFilter = document.getElementById('cache-model-filter').value;
+    const payload = modelFilter ? { model_id: modelFilter } : {};
+    
+    if (confirm(`Are you sure you want to clear ${modelFilter ? 'model-specific' : 'all'} cache entries?`)) {
+        fetch('/api/cache/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Cache cleared successfully');
+                loadCacheStats();
+                loadCacheEntries();
+            } else {
+                alert('Error clearing cache: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error clearing cache:', error);
+            alert('Error clearing cache');
+        });
+    }
+}
+
+function clearAllCache() {
+    if (confirm('Are you sure you want to clear ALL cache entries? This action cannot be undone.')) {
+        fetch('/api/cache/clear', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('All cache entries cleared successfully');
+                loadCacheStats();
+                loadCacheEntries();
+            } else {
+                alert('Error clearing cache: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error clearing cache:', error);
+            alert('Error clearing all cache');
+        });
+    }
+}
 </script>
 {% endblock %}

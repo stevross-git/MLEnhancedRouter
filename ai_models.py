@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Any, Union
 import aiohttp
 import requests
 from datetime import datetime
+from ai_cache import get_cache_manager
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ class AIModelManager:
         self.db = db
         self.models: Dict[str, AIModel] = {}
         self.active_model_id: Optional[str] = None
+        self.cache_manager = get_cache_manager()
         self._initialize_default_models()
     
     def _initialize_default_models(self):
@@ -319,6 +321,20 @@ class AIModelManager:
             return {"error": "No model available", "status": "error"}
         
         try:
+            # Check cache first
+            cached_response = self.cache_manager.get(query, model.id, system_message)
+            if cached_response:
+                logger.info(f"Cache hit for model {model.id}")
+                return {
+                    "response": cached_response['response'],
+                    "model_id": cached_response['model_id'],
+                    "cached": True,
+                    "cached_at": cached_response['cached_at'],
+                    "hit_count": cached_response.get('hit_count', 1),
+                    "metadata": cached_response.get('metadata', {}),
+                    "status": "success"
+                }
+            
             # Check if API key is available
             api_key = os.getenv(model.api_key_env) if model.api_key_env else None
             if model.provider != AIProvider.OLLAMA and not api_key:
@@ -326,25 +342,46 @@ class AIModelManager:
             
             # Route to appropriate handler
             if model.provider == AIProvider.OPENAI:
-                return await self._handle_openai(model, query, system_message, api_key)
+                result = await self._handle_openai(model, query, system_message, api_key)
             elif model.provider == AIProvider.ANTHROPIC:
-                return await self._handle_anthropic(model, query, system_message, api_key)
+                result = await self._handle_anthropic(model, query, system_message, api_key)
             elif model.provider == AIProvider.GOOGLE:
-                return await self._handle_google(model, query, system_message, api_key)
+                result = await self._handle_google(model, query, system_message, api_key)
             elif model.provider == AIProvider.XAI:
-                return await self._handle_xai(model, query, system_message, api_key)
+                result = await self._handle_xai(model, query, system_message, api_key)
             elif model.provider == AIProvider.PERPLEXITY:
-                return await self._handle_perplexity(model, query, system_message, api_key)
+                result = await self._handle_perplexity(model, query, system_message, api_key)
             elif model.provider == AIProvider.OLLAMA:
-                return await self._handle_ollama(model, query, system_message)
+                result = await self._handle_ollama(model, query, system_message)
             elif model.provider == AIProvider.COHERE:
-                return await self._handle_cohere(model, query, system_message, api_key)
+                result = await self._handle_cohere(model, query, system_message, api_key)
             elif model.provider == AIProvider.MISTRAL:
-                return await self._handle_mistral(model, query, system_message, api_key)
+                result = await self._handle_mistral(model, query, system_message, api_key)
             elif model.provider == AIProvider.CUSTOM:
-                return await self._handle_custom(model, query, system_message, api_key)
+                result = await self._handle_custom(model, query, system_message, api_key)
             else:
                 return {"error": f"Unsupported provider: {model.provider.value}", "status": "error"}
+            
+            # Cache the response if successful
+            if result.get("status") == "success" and "response" in result:
+                metadata = {
+                    "user_id": user_id,
+                    "provider": model.provider.value,
+                    "model_name": model.model_name,
+                    "timestamp": datetime.now().isoformat(),
+                    "cost_per_1k_tokens": model.cost_per_1k_tokens
+                }
+                self.cache_manager.set(
+                    query=query,
+                    model_id=model.id,
+                    response=result["response"],
+                    system_message=system_message,
+                    metadata=metadata
+                )
+                logger.info(f"Cached response for model {model.id}")
+                result["cached"] = False
+            
+            return result
                 
         except Exception as e:
             logger.error(f"Error generating response with model {model.id}: {e}")
