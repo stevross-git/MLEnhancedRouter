@@ -3,6 +3,45 @@
 {% block title %}Settings - ML Query Router{% endblock %}
 
 {% block content %}
+<style>
+/* Dark theme form styling fixes */
+.form-select, .form-control {
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+    border-color: var(--bs-secondary) !important;
+}
+
+.form-select option {
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+}
+
+.form-select:focus, .form-control:focus {
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+    border-color: var(--bs-primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+}
+
+.card.bg-dark {
+    background-color: var(--bs-dark) !important;
+}
+
+.text-light {
+    color: var(--bs-light) !important;
+}
+
+.list-group-item {
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+    border-color: var(--bs-secondary) !important;
+}
+
+.list-group-item.active {
+    background-color: var(--bs-primary) !important;
+    border-color: var(--bs-primary) !important;
+}
+</style>
 <div class="row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -370,6 +409,16 @@
 document.addEventListener('DOMContentLoaded', function() {
     loadAPIKeyStatus();
     loadAvailableModels();
+    
+    // Ensure all form elements have proper dark theme styling
+    const formElements = document.querySelectorAll('select, input[type="number"], input[type="range"]');
+    formElements.forEach(element => {
+        if (element.tagName === 'SELECT') {
+            element.classList.add('bg-dark', 'text-light');
+        } else if (element.type === 'number') {
+            element.classList.add('bg-dark', 'text-light', 'border-secondary');
+        }
+    });
 });
 
 function loadAPIKeyStatus() {
@@ -395,10 +444,10 @@ function displayAPIKeyStatus(statusInfo) {
         
         container.innerHTML += `
             <div class="col-md-3 col-sm-6 mb-2">
-                <div class="card border-0 bg-light">
+                <div class="card border-1 bg-dark">
                     <div class="card-body p-2 text-center">
                         <i class="${statusIcon} ${statusClass} me-1"></i>
-                        <small class="text-capitalize">${provider}</small>
+                        <small class="text-capitalize text-light">${provider}</small>
                         <div class="text-muted" style="font-size: 0.75rem">${info.message}</div>
                     </div>
                 </div>
@@ -414,11 +463,13 @@ function loadAvailableModels() {
             if (data.status === 'success') {
                 const select = document.getElementById('default-model');
                 select.innerHTML = '<option value="">Select default model...</option>';
+                select.className = 'form-select bg-dark text-light';
                 
                 data.models.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model.id;
                     option.textContent = `${model.name} (${model.provider})`;
+                    option.className = 'bg-dark text-light';
                     if (model.is_active) {
                         option.selected = true;
                     }
