@@ -63,7 +63,7 @@ def initialize_router():
             model_manager = ModelManager(db)
             ai_model_manager = AIModelManager(db)
             auth_manager = AuthManager()
-            cache_manager = get_cache_manager()
+            cache_manager = get_cache_manager(db)
             router = MLEnhancedQueryRouter(router_config, model_manager)
             
             # Initialize ML models

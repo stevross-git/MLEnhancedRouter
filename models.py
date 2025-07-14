@@ -1,6 +1,7 @@
 from app import db
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, JSON
+import hashlib
 
 class QueryLog(db.Model):
     """Log of all queries processed by the router"""
@@ -51,3 +52,63 @@ class MLModelRegistry(db.Model):
     version = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+class AICacheEntry(db.Model):
+    """AI response cache entries"""
+    __tablename__ = 'ai_cache_entries'
+    
+    id = Column(Integer, primary_key=True)
+    cache_key = Column(String(64), unique=True, nullable=False, index=True)
+    query = Column(Text, nullable=False)
+    response = Column(Text, nullable=False)
+    model_id = Column(String(64), nullable=False, index=True)
+    system_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    meta_data = Column(JSON, nullable=True)
+    hit_count = Column(Integer, default=0)
+    last_accessed = Column(DateTime, nullable=True)
+    
+    @classmethod
+    def generate_cache_key(cls, query: str, model_id: str, system_message: str = None) -> str:
+        """Generate a unique cache key for the query"""
+        content = f"{query}|{model_id}|{system_message or ''}"
+        return hashlib.sha256(content.encode()).hexdigest()
+    
+    def is_expired(self) -> bool:
+        """Check if the cache entry is expired"""
+        return datetime.utcnow() > self.expires_at
+    
+    def increment_hit_count(self):
+        """Increment hit count and update last accessed time"""
+        self.hit_count += 1
+        self.last_accessed = datetime.utcnow()
+
+class AICacheStats(db.Model):
+    """AI cache statistics and metrics"""
+    __tablename__ = 'ai_cache_stats'
+    
+    id = Column(Integer, primary_key=True)
+    date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    total_requests = Column(Integer, default=0)
+    cache_hits = Column(Integer, default=0)
+    cache_misses = Column(Integer, default=0)
+    total_entries = Column(Integer, default=0)
+    expired_entries = Column(Integer, default=0)
+    cache_size_mb = Column(Float, default=0.0)
+    average_response_time = Column(Float, default=0.0)
+    model_id = Column(String(64), nullable=True, index=True)
+    
+    @property
+    def hit_rate(self) -> float:
+        """Calculate cache hit rate"""
+        if self.total_requests == 0:
+            return 0.0
+        return (self.cache_hits / self.total_requests) * 100
+    
+    @property  
+    def miss_rate(self) -> float:
+        """Calculate cache miss rate"""
+        if self.total_requests == 0:
+            return 0.0
+        return (self.cache_misses / self.total_requests) * 100

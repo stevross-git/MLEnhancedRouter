@@ -13,6 +13,8 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 import sqlite3
 import logging
+from sqlalchemy import and_, func
+from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -31,29 +33,28 @@ class CacheEntry:
     last_accessed: Optional[datetime] = None
 
 class AICacheManager:
-    """Manages AI response caching with multiple storage backends"""
+    """Manages AI response caching with database backend"""
     
-    def __init__(self, cache_type: str = "sqlite", ttl_seconds: int = 3600, max_size: int = 10000):
+    def __init__(self, db=None, ttl_seconds: int = 3600, max_size: int = 10000):
         """
         Initialize cache manager
         
         Args:
-            cache_type: Type of cache storage ('sqlite', 'memory', 'redis')
+            db: Database instance (Flask-SQLAlchemy)
             ttl_seconds: Time to live for cache entries in seconds
             max_size: Maximum number of entries in cache
         """
-        self.cache_type = cache_type
+        self.db = db
         self.ttl_seconds = ttl_seconds
         self.max_size = max_size
         self.memory_cache: Dict[str, CacheEntry] = {}
         
-        # Initialize storage backend
-        if cache_type == "sqlite":
-            self._init_sqlite()
-        elif cache_type == "redis":
-            self._init_redis()
+        # Import models here to avoid circular imports
+        from models import AICacheEntry, AICacheStats
+        self.AICacheEntry = AICacheEntry
+        self.AICacheStats = AICacheStats
         
-        logger.info(f"AI Cache initialized with {cache_type} backend, TTL: {ttl_seconds}s, max size: {max_size}")
+        logger.info(f"AI Cache initialized with database backend, TTL: {ttl_seconds}s, max size: {max_size}")
     
     def _init_sqlite(self):
         """Initialize SQLite cache storage"""
@@ -115,16 +116,38 @@ class AICacheManager:
         Returns:
             Cached response data or None if not found/expired
         """
+        if not self.db:
+            return None
+            
         cache_key = self._generate_cache_key(query, model_id, system_message)
         
-        if self.cache_type == "memory":
-            return self._get_from_memory(cache_key)
-        elif self.cache_type == "sqlite":
-            return self._get_from_sqlite(cache_key)
-        elif self.cache_type == "redis":
-            return self._get_from_redis(cache_key)
-        
-        return None
+        try:
+            # Query the database for the cache entry
+            entry = self.db.session.query(self.AICacheEntry).filter(
+                and_(
+                    self.AICacheEntry.cache_key == cache_key,
+                    self.AICacheEntry.expires_at > datetime.now()
+                )
+            ).first()
+            
+            if entry:
+                # Update hit count and last accessed
+                entry.increment_hit_count()
+                self.db.session.commit()
+                
+                return {
+                    'response': entry.response,
+                    'model_id': entry.model_id,
+                    'cached_at': entry.created_at.isoformat(),
+                    'metadata': entry.meta_data or {},
+                    'hit_count': entry.hit_count
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error retrieving from database cache: {e}")
+            return None
     
     def set(self, query: str, model_id: str, response: str, system_message: Optional[str] = None, 
             metadata: Dict[str, Any] = None) -> bool:
@@ -141,303 +164,178 @@ class AICacheManager:
         Returns:
             True if cached successfully
         """
+        if not self.db:
+            return False
+            
         cache_key = self._generate_cache_key(query, model_id, system_message)
         
-        entry = CacheEntry(
-            key=cache_key,
-            query=query,
-            response=response,
-            model_id=model_id,
-            system_message=system_message,
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(seconds=self.ttl_seconds),
-            metadata=metadata or {}
-        )
-        
-        if self.cache_type == "memory":
-            return self._set_in_memory(cache_key, entry)
-        elif self.cache_type == "sqlite":
-            return self._set_in_sqlite(cache_key, entry)
-        elif self.cache_type == "redis":
-            return self._set_in_redis(cache_key, entry)
-        
-        return False
-    
-    def _get_from_memory(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """Get entry from memory cache"""
-        if cache_key in self.memory_cache:
-            entry = self.memory_cache[cache_key]
-            if datetime.now() < entry.expires_at:
-                entry.hit_count += 1
-                entry.last_accessed = datetime.now()
-                return {
-                    'response': entry.response,
-                    'model_id': entry.model_id,
-                    'cached_at': entry.created_at.isoformat(),
-                    'metadata': entry.metadata
-                }
+        try:
+            # Check if entry already exists
+            existing = self.db.session.query(self.AICacheEntry).filter(
+                self.AICacheEntry.cache_key == cache_key
+            ).first()
+            
+            if existing:
+                # Update existing entry
+                existing.response = response
+                existing.expires_at = datetime.now() + timedelta(seconds=self.ttl_seconds)
+                existing.meta_data = metadata or {}
             else:
-                del self.memory_cache[cache_key]
-        return None
-    
-    def _set_in_memory(self, cache_key: str, entry: CacheEntry) -> bool:
-        """Set entry in memory cache"""
-        # Check size limit
-        if len(self.memory_cache) >= self.max_size:
-            # Remove oldest entries
-            oldest_keys = sorted(self.memory_cache.keys(), 
-                               key=lambda k: self.memory_cache[k].created_at)[:100]
-            for key in oldest_keys:
-                del self.memory_cache[key]
-        
-        self.memory_cache[cache_key] = entry
-        return True
-    
-    def _get_from_sqlite(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """Get entry from SQLite cache"""
-        try:
-            cursor = self.conn.execute('''
-                SELECT response, model_id, created_at, metadata, hit_count
-                FROM ai_cache 
-                WHERE key = ? AND expires_at > ?
-            ''', (cache_key, datetime.now()))
+                # Create new entry
+                entry = self.AICacheEntry(
+                    cache_key=cache_key,
+                    query=query,
+                    response=response,
+                    model_id=model_id,
+                    system_message=system_message,
+                    created_at=datetime.now(),
+                    expires_at=datetime.now() + timedelta(seconds=self.ttl_seconds),
+                    meta_data=metadata or {}
+                )
+                self.db.session.add(entry)
             
-            row = cursor.fetchone()
-            if row:
-                # Update hit count and last accessed
-                self.conn.execute('''
-                    UPDATE ai_cache 
-                    SET hit_count = hit_count + 1, last_accessed = ?
-                    WHERE key = ?
-                ''', (datetime.now(), cache_key))
-                self.conn.commit()
-                
-                return {
-                    'response': row[0],
-                    'model_id': row[1],
-                    'cached_at': row[2],
-                    'metadata': json.loads(row[3]) if row[3] else {},
-                    'hit_count': row[4] + 1
-                }
-        except Exception as e:
-            logger.error(f"Error getting from SQLite cache: {e}")
-        
-        return None
-    
-    def _set_in_sqlite(self, cache_key: str, entry: CacheEntry) -> bool:
-        """Set entry in SQLite cache"""
-        try:
-            self.conn.execute('''
-                INSERT OR REPLACE INTO ai_cache 
-                (key, query, response, model_id, system_message, created_at, expires_at, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                cache_key,
-                entry.query,
-                entry.response,
-                entry.model_id,
-                entry.system_message,
-                entry.created_at,
-                entry.expires_at,
-                json.dumps(entry.metadata)
-            ))
-            self.conn.commit()
-            
-            # Clean up expired entries periodically
-            if hash(cache_key) % 100 == 0:  # Clean up every 100th insert
-                self._cleanup_expired()
-            
+            self.db.session.commit()
             return True
+            
         except Exception as e:
-            logger.error(f"Error setting in SQLite cache: {e}")
-            return False
-    
-    def _get_from_redis(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """Get entry from Redis cache"""
-        try:
-            data = self.redis_client.get(f"ai_cache:{cache_key}")
-            if data:
-                entry = pickle.loads(data)
-                if datetime.now() < entry.expires_at:
-                    # Update hit count
-                    entry.hit_count += 1
-                    entry.last_accessed = datetime.now()
-                    self.redis_client.setex(
-                        f"ai_cache:{cache_key}",
-                        self.ttl_seconds,
-                        pickle.dumps(entry)
-                    )
-                    
-                    return {
-                        'response': entry.response,
-                        'model_id': entry.model_id,
-                        'cached_at': entry.created_at.isoformat(),
-                        'metadata': entry.metadata,
-                        'hit_count': entry.hit_count
-                    }
-                else:
-                    self.redis_client.delete(f"ai_cache:{cache_key}")
-        except Exception as e:
-            logger.error(f"Error getting from Redis cache: {e}")
-        
-        return None
-    
-    def _set_in_redis(self, cache_key: str, entry: CacheEntry) -> bool:
-        """Set entry in Redis cache"""
-        try:
-            self.redis_client.setex(
-                f"ai_cache:{cache_key}",
-                self.ttl_seconds,
-                pickle.dumps(entry)
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error setting in Redis cache: {e}")
+            logger.error(f"Error storing in database cache: {e}")
+            self.db.session.rollback()
             return False
     
     def _cleanup_expired(self):
-        """Clean up expired entries from SQLite"""
+        """Clean up expired entries from database"""
+        if not self.db:
+            return
+            
         try:
-            cursor = self.conn.execute('''
-                DELETE FROM ai_cache WHERE expires_at < ?
-            ''', (datetime.now(),))
-            deleted_count = cursor.rowcount
-            self.conn.commit()
-            if deleted_count > 0:
-                logger.info(f"Cleaned up {deleted_count} expired cache entries")
+            expired_count = self.db.session.query(self.AICacheEntry).filter(
+                self.AICacheEntry.expires_at < datetime.now()
+            ).delete()
+            
+            self.db.session.commit()
+            
+            if expired_count > 0:
+                logger.info(f"Cleaned up {expired_count} expired cache entries")
+                
         except Exception as e:
             logger.error(f"Error cleaning up expired entries: {e}")
+            self.db.session.rollback()
     
     def clear(self, model_id: Optional[str] = None):
         """Clear cache entries"""
-        if self.cache_type == "memory":
+        if not self.db:
+            return
+            
+        try:
             if model_id:
-                keys_to_remove = [k for k, v in self.memory_cache.items() if v.model_id == model_id]
-                for key in keys_to_remove:
-                    del self.memory_cache[key]
+                self.db.session.query(self.AICacheEntry).filter(
+                    self.AICacheEntry.model_id == model_id
+                ).delete()
             else:
-                self.memory_cache.clear()
-        
-        elif self.cache_type == "sqlite":
-            try:
-                if model_id:
-                    self.conn.execute('DELETE FROM ai_cache WHERE model_id = ?', (model_id,))
-                else:
-                    self.conn.execute('DELETE FROM ai_cache')
-                self.conn.commit()
-            except Exception as e:
-                logger.error(f"Error clearing SQLite cache: {e}")
-        
-        elif self.cache_type == "redis":
-            try:
-                if model_id:
-                    # This would require scanning all keys, which is expensive
-                    # In practice, you'd want to use a more efficient approach
-                    pass
-                else:
-                    for key in self.redis_client.scan_iter(match="ai_cache:*"):
-                        self.redis_client.delete(key)
-            except Exception as e:
-                logger.error(f"Error clearing Redis cache: {e}")
+                self.db.session.query(self.AICacheEntry).delete()
+            
+            self.db.session.commit()
+            logger.info(f"Cleared cache entries for model: {model_id or 'all'}")
+            
+        except Exception as e:
+            logger.error(f"Error clearing cache: {e}")
+            self.db.session.rollback()
     
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""
         stats = {
-            'cache_type': self.cache_type,
+            'cache_type': 'database',
             'ttl_seconds': self.ttl_seconds,
             'max_size': self.max_size
         }
         
-        if self.cache_type == "memory":
+        if not self.db:
+            return stats
+            
+        try:
+            # Get total entries
+            total_entries = self.db.session.query(self.AICacheEntry).count()
+            
+            # Get valid (non-expired) entries
+            valid_entries = self.db.session.query(self.AICacheEntry).filter(
+                self.AICacheEntry.expires_at > datetime.now()
+            ).count()
+            
+            # Get average hit count
+            avg_hit_count = self.db.session.query(func.avg(self.AICacheEntry.hit_count)).scalar() or 0
+            
+            # Get total hits
+            total_hits = self.db.session.query(func.sum(self.AICacheEntry.hit_count)).scalar() or 0
+            
             stats.update({
-                'total_entries': len(self.memory_cache),
-                'memory_usage_mb': sum(len(str(v).encode()) for v in self.memory_cache.values()) / (1024 * 1024)
+                'total_entries': total_entries,
+                'valid_entries': valid_entries,
+                'expired_entries': total_entries - valid_entries,
+                'average_hit_count': round(float(avg_hit_count), 2),
+                'total_hits': total_hits,
+                'hit_rate': round((total_hits / max(total_entries, 1)) * 100, 2)
             })
-        
-        elif self.cache_type == "sqlite":
-            try:
-                cursor = self.conn.execute('SELECT COUNT(*) FROM ai_cache')
-                total_entries = cursor.fetchone()[0]
-                
-                cursor = self.conn.execute('SELECT COUNT(*) FROM ai_cache WHERE expires_at > ?', (datetime.now(),))
-                valid_entries = cursor.fetchone()[0]
-                
-                cursor = self.conn.execute('SELECT AVG(hit_count) FROM ai_cache WHERE hit_count > 0')
-                avg_hit_count = cursor.fetchone()[0] or 0
-                
-                stats.update({
-                    'total_entries': total_entries,
-                    'valid_entries': valid_entries,
-                    'expired_entries': total_entries - valid_entries,
-                    'average_hit_count': round(avg_hit_count, 2)
-                })
-            except Exception as e:
-                logger.error(f"Error getting SQLite stats: {e}")
-        
-        elif self.cache_type == "redis":
-            try:
-                keys = list(self.redis_client.scan_iter(match="ai_cache:*"))
-                stats.update({
-                    'total_entries': len(keys),
-                    'redis_memory_usage': self.redis_client.memory_usage('ai_cache:*') if keys else 0
-                })
-            except Exception as e:
-                logger.error(f"Error getting Redis stats: {e}")
-        
+            
+        except Exception as e:
+            logger.error(f"Error getting database cache stats: {e}")
+            
         return stats
     
     def get_cache_entries(self, model_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Get recent cache entries for debugging/monitoring"""
         entries = []
         
-        if self.cache_type == "sqlite":
-            try:
-                if model_id:
-                    cursor = self.conn.execute('''
-                        SELECT key, query, model_id, created_at, expires_at, hit_count
-                        FROM ai_cache 
-                        WHERE model_id = ? AND expires_at > ?
-                        ORDER BY created_at DESC 
-                        LIMIT ?
-                    ''', (model_id, datetime.now(), limit))
-                else:
-                    cursor = self.conn.execute('''
-                        SELECT key, query, model_id, created_at, expires_at, hit_count
-                        FROM ai_cache 
-                        WHERE expires_at > ?
-                        ORDER BY created_at DESC 
-                        LIMIT ?
-                    ''', (datetime.now(), limit))
+        if not self.db:
+            return entries
+            
+        try:
+            query = self.db.session.query(self.AICacheEntry).filter(
+                self.AICacheEntry.expires_at > datetime.now()
+            )
+            
+            if model_id:
+                query = query.filter(self.AICacheEntry.model_id == model_id)
+            
+            query = query.order_by(self.AICacheEntry.created_at.desc()).limit(limit)
+            
+            for entry in query.all():
+                query_preview = entry.query[:100] + '...' if len(entry.query) > 100 else entry.query
+                entries.append({
+                    'key': entry.cache_key,
+                    'query': query_preview,
+                    'model_id': entry.model_id,
+                    'created_at': entry.created_at.isoformat(),
+                    'expires_at': entry.expires_at.isoformat(),
+                    'hit_count': entry.hit_count,
+                    'last_accessed': entry.last_accessed.isoformat() if entry.last_accessed else None
+                })
                 
-                for row in cursor.fetchall():
-                    entries.append({
-                        'key': row[0],
-                        'query': row[1][:100] + '...' if len(row[1]) > 100 else row[1],
-                        'model_id': row[2],
-                        'created_at': row[3],
-                        'expires_at': row[4],
-                        'hit_count': row[5]
-                    })
-            except Exception as e:
-                logger.error(f"Error getting cache entries: {e}")
-        
+        except Exception as e:
+            logger.error(f"Error getting cache entries: {e}")
+            
         return entries
 
 # Global cache instance
 cache_manager = None
 
-def get_cache_manager() -> AICacheManager:
+def get_cache_manager(db=None) -> AICacheManager:
     """Get or create global cache manager instance"""
     global cache_manager
     if cache_manager is None:
-        cache_type = os.getenv("AI_CACHE_TYPE", "sqlite")
         ttl_seconds = int(os.getenv("AI_CACHE_TTL", "3600"))
         max_size = int(os.getenv("AI_CACHE_MAX_SIZE", "10000"))
         
         cache_manager = AICacheManager(
-            cache_type=cache_type,
+            db=db,
             ttl_seconds=ttl_seconds,
             max_size=max_size
         )
+    elif db is not None and cache_manager.db is None:
+        # Update existing cache manager with database instance
+        cache_manager.db = db
+        # Re-import models with proper database context
+        from models import AICacheEntry, AICacheStats
+        cache_manager.AICacheEntry = AICacheEntry
+        cache_manager.AICacheStats = AICacheStats
     
     return cache_manager

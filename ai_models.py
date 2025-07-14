@@ -60,7 +60,7 @@ class AIModelManager:
         self.db = db
         self.models: Dict[str, AIModel] = {}
         self.active_model_id: Optional[str] = None
-        self.cache_manager = get_cache_manager()
+        self.cache_manager = get_cache_manager(db)
         self._initialize_default_models()
     
     def _initialize_default_models(self):
