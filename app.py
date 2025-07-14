@@ -23,6 +23,8 @@ from auth_system import AuthManager, UserRole
 from ai_cache import get_cache_manager
 from rag_chat import get_rag_chat
 from swagger_spec import swagger_spec
+from collaborative_router import get_collaborative_router
+from shared_memory import get_shared_memory_manager
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -59,10 +61,12 @@ ai_model_manager = None
 auth_manager = None
 cache_manager = None
 rag_system = None
+collaborative_router = None
+shared_memory_manager = None
 
 def initialize_router():
     """Initialize the ML router in a background thread"""
-    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager, rag_system
+    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager, rag_system, collaborative_router, shared_memory_manager
     
     try:
         with app.app_context():
@@ -72,7 +76,9 @@ def initialize_router():
             auth_manager = AuthManager()
             cache_manager = get_cache_manager(db)
             rag_system = get_rag_chat()
+            shared_memory_manager = get_shared_memory_manager()
             router = MLEnhancedQueryRouter(router_config, model_manager)
+            collaborative_router = get_collaborative_router(ai_model_manager)
             
             # Initialize ML models
             loop = asyncio.new_event_loop()
@@ -1417,6 +1423,160 @@ def api_docs():
 def openapi_spec():
     """OpenAPI/Swagger specification"""
     return jsonify(swagger_spec)
+
+# Collaborative AI Endpoints
+@app.route('/api/collaborate', methods=['POST'])
+def collaborate():
+    """Submit a query for collaborative AI processing"""
+    try:
+        global collaborative_router
+        if not collaborative_router:
+            return jsonify({'error': 'Collaborative router not initialized'}), 500
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        query = data.get('query', '')
+        if not query:
+            return jsonify({'error': 'Query is required'}), 400
+        
+        enable_rag = data.get('enable_rag', False)
+        max_agents = data.get('max_agents', 3)
+        collaboration_timeout = data.get('timeout', 300)
+        
+        # Run collaborative processing
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            result = loop.run_until_complete(
+                collaborative_router.process_collaborative_query(
+                    query=query,
+                    enable_rag=enable_rag,
+                    max_agents=max_agents,
+                    collaboration_timeout=collaboration_timeout
+                )
+            )
+            return jsonify(result)
+        finally:
+            loop.close()
+        
+    except Exception as e:
+        logger.error(f"Collaborative processing error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/collaborate/sessions', methods=['GET'])
+def get_collaboration_sessions():
+    """Get active collaboration sessions"""
+    try:
+        global collaborative_router
+        if not collaborative_router:
+            return jsonify({'error': 'Collaborative router not initialized'}), 500
+        
+        active_sessions = collaborative_router.get_active_sessions()
+        return jsonify({'sessions': active_sessions})
+        
+    except Exception as e:
+        logger.error(f"Error getting collaboration sessions: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/collaborate/sessions/<session_id>', methods=['GET'])
+def get_collaboration_session(session_id):
+    """Get details of a specific collaboration session"""
+    try:
+        global collaborative_router
+        if not collaborative_router:
+            return jsonify({'error': 'Collaborative router not initialized'}), 500
+        
+        session_details = collaborative_router.get_session_details(session_id)
+        return jsonify(session_details)
+        
+    except Exception as e:
+        logger.error(f"Error getting session details: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shared-memory/stats', methods=['GET'])
+def get_shared_memory_stats():
+    """Get shared memory statistics"""
+    try:
+        global shared_memory_manager
+        if not shared_memory_manager:
+            return jsonify({'error': 'Shared memory manager not initialized'}), 500
+        
+        # Get basic stats
+        stats = {
+            'total_messages': len(shared_memory_manager.messages),
+            'active_sessions': len(shared_memory_manager.sessions),
+            'agent_contexts': len(shared_memory_manager.agent_contexts),
+            'message_index_size': sum(len(msgs) for msgs in shared_memory_manager.message_index.values())
+        }
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting shared memory stats: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shared-memory/sessions/<session_id>/messages', methods=['GET'])
+def get_session_messages(session_id):
+    """Get messages from a specific session"""
+    try:
+        global shared_memory_manager
+        if not shared_memory_manager:
+            return jsonify({'error': 'Shared memory manager not initialized'}), 500
+        
+        # Get query parameters
+        limit = int(request.args.get('limit', 50))
+        message_types = request.args.getlist('types')
+        
+        # Convert string types to MessageType enum
+        from shared_memory import MessageType
+        if message_types:
+            try:
+                message_types = [MessageType(t) for t in message_types]
+            except ValueError:
+                return jsonify({'error': 'Invalid message type'}), 400
+        else:
+            message_types = None
+        
+        messages = shared_memory_manager.get_session_messages(
+            session_id, 
+            message_types=message_types
+        )
+        
+        # Limit results
+        messages = messages[-limit:]
+        
+        return jsonify({
+            'session_id': session_id,
+            'messages': [msg.to_dict() for msg in messages]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting session messages: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shared-memory/sessions/<session_id>/context', methods=['GET'])
+def get_session_context(session_id):
+    """Get shared context for a session"""
+    try:
+        global shared_memory_manager
+        if not shared_memory_manager:
+            return jsonify({'error': 'Shared memory manager not initialized'}), 500
+        
+        context = shared_memory_manager.get_shared_context(session_id)
+        return jsonify(context)
+        
+    except Exception as e:
+        logger.error(f"Error getting session context: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/collaborate')
+def collaborate_page():
+    """Collaborative AI interface page"""
+    return render_template('collaborate.html')
 
 # Initialize database
 with app.app_context():
