@@ -20,6 +20,7 @@ from shared_memory import (
 )
 from ai_models import AIModelManager, AIProvider
 from rag_chat import get_rag_chat
+from external_llm_integration import get_external_llm_manager, QueryComplexity
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class CollaborativeRouter:
     def __init__(self, ai_model_manager: AIModelManager):
         self.ai_model_manager = ai_model_manager
         self.shared_memory = get_shared_memory_manager()
+        self.external_llm_manager = get_external_llm_manager()
         self.active_sessions: Dict[str, Dict[str, Any]] = {}
         self.collaborative_agents: Dict[str, CollaborativeAgent] = {}
         self.session_lock = threading.RLock()
@@ -269,7 +271,46 @@ class CollaborativeRouter:
                                        agents: List[CollaborativeAgent],
                                        enable_rag: bool, 
                                        timeout: int) -> Dict[str, Any]:
-        """Run a collaborative session with multiple agents"""
+        """Run a collaborative session with multiple agents and external LLM integration"""
+        
+        # Check if query requires external LLM processing
+        requires_external_llm = self.external_llm_manager.is_complex_query(query)
+        external_llm_response = None
+        
+        if requires_external_llm:
+            logger.info(f"Complex query detected, using external LLM for initial analysis")
+            
+            # Get RAG context for external LLM
+            rag_context = ""
+            if enable_rag:
+                rag_context = await self._get_rag_context(query)
+            
+            try:
+                # Process with external LLM
+                external_llm_response = await self.external_llm_manager.process_complex_query(
+                    query, context=rag_context
+                )
+                
+                # Store external LLM response in shared memory
+                self.shared_memory.add_message(
+                    agent_id="external_llm",
+                    agent_name=f"External LLM ({external_llm_response['provider']})",
+                    message_type=MessageType.EXTERNAL_LLM_RESPONSE,
+                    content=external_llm_response["response"],
+                    metadata={
+                        "provider": external_llm_response["provider"],
+                        "complexity": external_llm_response["complexity"],
+                        "processing_time": external_llm_response["processing_time"],
+                        "session_id": session_id
+                    }
+                )
+                
+                logger.info(f"External LLM processing completed with {external_llm_response['provider']}")
+                
+            except Exception as e:
+                logger.error(f"External LLM processing failed: {str(e)}")
+                # Continue with regular collaborative processing
+                external_llm_response = None
         
         # Enhance query with RAG if enabled
         enhanced_query = query

@@ -25,6 +25,7 @@ from rag_chat import get_rag_chat
 from swagger_spec import swagger_spec
 from collaborative_router import get_collaborative_router
 from shared_memory import get_shared_memory_manager
+from external_llm_integration import get_external_llm_manager
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -63,10 +64,11 @@ cache_manager = None
 rag_system = None
 collaborative_router = None
 shared_memory_manager = None
+external_llm_manager = None
 
 def initialize_router():
     """Initialize the ML router in a background thread"""
-    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager, rag_system, collaborative_router, shared_memory_manager
+    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager, rag_system, collaborative_router, shared_memory_manager, external_llm_manager
     
     try:
         with app.app_context():
@@ -77,6 +79,7 @@ def initialize_router():
             cache_manager = get_cache_manager(db)
             rag_system = get_rag_chat()
             shared_memory_manager = get_shared_memory_manager()
+            external_llm_manager = get_external_llm_manager(db)
             router = MLEnhancedQueryRouter(router_config, model_manager)
             collaborative_router = get_collaborative_router(ai_model_manager)
             
@@ -1423,6 +1426,107 @@ def api_docs():
 def openapi_spec():
     """OpenAPI/Swagger specification"""
     return jsonify(swagger_spec)
+
+# External LLM Integration Endpoints
+@app.route('/api/external-llm/analyze', methods=['POST'])
+def analyze_query_complexity():
+    """Analyze query complexity for external LLM routing"""
+    try:
+        data = request.get_json()
+        if not data or 'query' not in data:
+            return jsonify({'error': 'Query is required'}), 400
+        
+        query = data['query']
+        complex_query = external_llm_manager.analyzer.analyze_query(query)
+        
+        return jsonify({
+            'query': query,
+            'complexity': complex_query.complexity.value,
+            'domain': complex_query.domain,
+            'requires_reasoning': complex_query.requires_reasoning,
+            'requires_creativity': complex_query.requires_creativity,
+            'requires_analysis': complex_query.requires_analysis,
+            'requires_multi_step': complex_query.requires_multi_step,
+            'context_length': complex_query.context_length,
+            'specialized_knowledge': complex_query.specialized_knowledge,
+            'is_complex': external_llm_manager.is_complex_query(query),
+            'recommended_provider': external_llm_manager.get_recommended_provider(query).value if external_llm_manager.get_recommended_provider(query) else None
+        })
+    except Exception as e:
+        logger.error(f"Error analyzing query: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/external-llm/process', methods=['POST'])
+def process_with_external_llm():
+    """Process a query using external LLM"""
+    try:
+        data = request.get_json()
+        if not data or 'query' not in data:
+            return jsonify({'error': 'Query is required'}), 400
+        
+        query = data['query']
+        context = data.get('context', '')
+        preferred_provider = data.get('preferred_provider')
+        
+        # Convert string provider to enum if provided
+        if preferred_provider:
+            from external_llm_integration import ExternalProvider
+            try:
+                preferred_provider = ExternalProvider(preferred_provider)
+            except ValueError:
+                return jsonify({'error': f'Invalid provider: {preferred_provider}'}), 400
+        
+        # Process with external LLM
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(
+            external_llm_manager.process_complex_query(
+                query, context=context, preferred_provider=preferred_provider
+            )
+        )
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error processing with external LLM: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/external-llm/providers')
+def get_external_providers():
+    """Get available external LLM providers"""
+    try:
+        providers = []
+        for provider_enum, config in external_llm_manager.providers.items():
+            api_key = os.environ.get(config.api_key_env)
+            providers.append({
+                'id': provider_enum.value,
+                'name': config.model_name,
+                'endpoint': config.endpoint,
+                'max_tokens': config.max_tokens,
+                'cost_per_1k_tokens': config.cost_per_1k_tokens,
+                'rate_limit_rpm': config.rate_limit_rpm,
+                'specializations': config.specializations,
+                'api_key_available': bool(api_key)
+            })
+        
+        return jsonify({
+            'providers': providers,
+            'total_providers': len(providers),
+            'available_providers': len([p for p in providers if p['api_key_available']])
+        })
+    except Exception as e:
+        logger.error(f"Error getting external providers: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/external-llm/metrics')
+def get_external_llm_metrics():
+    """Get performance metrics for external LLM providers"""
+    try:
+        metrics = external_llm_manager.get_provider_metrics()
+        return jsonify(metrics)
+    except Exception as e:
+        logger.error(f"Error getting external LLM metrics: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # Collaborative AI Endpoints
 @app.route('/api/collaborate', methods=['POST'])

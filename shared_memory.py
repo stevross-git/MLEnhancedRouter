@@ -23,6 +23,7 @@ class MessageType(Enum):
     FACT = "fact"
     CONCLUSION = "conclusion"
     COLLABORATION = "collaboration"
+    EXTERNAL_LLM_RESPONSE = "external_llm_response"
 
 class MessageStatus(Enum):
     PENDING = "pending"

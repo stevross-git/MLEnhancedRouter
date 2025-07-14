@@ -1114,6 +1114,146 @@ swagger_spec = {
                 }
             }
         },
+        "/api/external-llm/analyze": {
+            "post": {
+                "tags": ["External LLM"],
+                "summary": "Analyze query complexity",
+                "description": "Analyze a query to determine its complexity and routing requirements",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string", "description": "The query to analyze"}
+                                },
+                                "required": ["query"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Query complexity analysis completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/QueryComplexityAnalysis"}
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/external-llm/process": {
+            "post": {
+                "tags": ["External LLM"],
+                "summary": "Process query with external LLM",
+                "description": "Process a complex query using external LLM providers",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string", "description": "The query to process"},
+                                    "context": {"type": "string", "description": "Optional context for the query"},
+                                    "preferred_provider": {"type": "string", "description": "Preferred external LLM provider"}
+                                },
+                                "required": ["query"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Query processed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ExternalLLMResponse"}
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/external-llm/providers": {
+            "get": {
+                "tags": ["External LLM"],
+                "summary": "Get external LLM providers",
+                "description": "Get list of available external LLM providers and their configurations",
+                "responses": {
+                    "200": {
+                        "description": "Providers retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "providers": {
+                                            "type": "array",
+                                            "items": {"$ref": "#/components/schemas/ExternalProvider"}
+                                        },
+                                        "total_providers": {"type": "integer"},
+                                        "available_providers": {"type": "integer"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error retrieving providers",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/external-llm/metrics": {
+            "get": {
+                "tags": ["External LLM"],
+                "summary": "Get external LLM metrics",
+                "description": "Get performance metrics for external LLM providers",
+                "responses": {
+                    "200": {
+                        "description": "Metrics retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ExternalLLMMetrics"}
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error retrieving metrics",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "tags": ["System"],
@@ -1365,6 +1505,68 @@ swagger_spec = {
                     "metadata": {
                         "type": "object",
                         "additionalProperties": True
+                    }
+                }
+            },
+            "QueryComplexityAnalysis": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "complexity": {"type": "string", "enum": ["simple", "moderate", "complex", "very_complex"]},
+                    "domain": {"type": "string"},
+                    "requires_reasoning": {"type": "boolean"},
+                    "requires_creativity": {"type": "boolean"},
+                    "requires_analysis": {"type": "boolean"},
+                    "requires_multi_step": {"type": "boolean"},
+                    "context_length": {"type": "integer"},
+                    "specialized_knowledge": {"type": "array", "items": {"type": "string"}},
+                    "is_complex": {"type": "boolean"},
+                    "recommended_provider": {"type": "string"}
+                }
+            },
+            "ExternalLLMResponse": {
+                "type": "object",
+                "properties": {
+                    "response": {"type": "string"},
+                    "provider": {"type": "string"},
+                    "complexity": {"type": "string"},
+                    "processing_time": {"type": "number"},
+                    "success": {"type": "boolean"},
+                    "error": {"type": "string"}
+                }
+            },
+            "ExternalProvider": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "name": {"type": "string"},
+                    "endpoint": {"type": "string"},
+                    "max_tokens": {"type": "integer"},
+                    "cost_per_1k_tokens": {"type": "number"},
+                    "rate_limit_rpm": {"type": "integer"},
+                    "specializations": {"type": "array", "items": {"type": "string"}},
+                    "api_key_available": {"type": "boolean"}
+                }
+            },
+            "ExternalLLMMetrics": {
+                "type": "object",
+                "properties": {
+                    "total_queries": {"type": "integer"},
+                    "successful_queries": {"type": "integer"},
+                    "failed_queries": {"type": "integer"},
+                    "average_response_time": {"type": "number"},
+                    "provider_breakdown": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                                "total_requests": {"type": "integer"},
+                                "successful_requests": {"type": "integer"},
+                                "failed_requests": {"type": "integer"},
+                                "avg_response_time": {"type": "number"},
+                                "rate_limit_hits": {"type": "integer"}
+                            }
+                        }
                     }
                 }
             }
