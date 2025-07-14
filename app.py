@@ -1578,6 +1578,45 @@ def collaborate_page():
     """Collaborative AI interface page"""
     return render_template('collaborate.html')
 
+@app.route('/api/collaborate/agents', methods=['GET'])
+def get_collaborative_agents():
+    """Get collaborative agent configurations"""
+    try:
+        global collaborative_router
+        if not collaborative_router:
+            return jsonify({'error': 'Collaborative router not initialized'}), 500
+        
+        configurations = collaborative_router.get_agent_configurations()
+        return jsonify(configurations)
+        
+    except Exception as e:
+        logger.error(f"Error getting collaborative agents: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/collaborate/agents/<agent_id>/model', methods=['PUT'])
+def update_agent_model(agent_id):
+    """Update AI model for a specific collaborative agent"""
+    try:
+        global collaborative_router
+        if not collaborative_router:
+            return jsonify({'error': 'Collaborative router not initialized'}), 500
+        
+        data = request.get_json()
+        if not data or 'model_id' not in data:
+            return jsonify({'error': 'model_id is required'}), 400
+        
+        model_id = data['model_id']
+        success = collaborative_router.update_agent_model(agent_id, model_id)
+        
+        if success:
+            return jsonify({'message': f'Agent {agent_id} updated to use model {model_id}'})
+        else:
+            return jsonify({'error': 'Failed to update agent model'}), 400
+        
+    except Exception as e:
+        logger.error(f"Error updating agent model: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # Initialize database
 with app.app_context():
     import models

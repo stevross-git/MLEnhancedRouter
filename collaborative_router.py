@@ -83,21 +83,88 @@ class CollaborativeRouter:
                 self.collaborative_agents[agent.agent_id] = agent
                 logger.info(f"Initialized collaborative agent: {agent.name}")
     
+    def update_agent_model(self, agent_id: str, model_id: str) -> bool:
+        """Update the AI model for a specific collaborative agent"""
+        if agent_id not in self.collaborative_agents:
+            return False
+        
+        # Verify the model exists
+        model = self.ai_model_manager.get_model(model_id)
+        if not model:
+            return False
+        
+        self.collaborative_agents[agent_id].model_id = model_id
+        logger.info(f"Updated agent {agent_id} to use model {model_id}")
+        return True
+    
+    def get_agent_configurations(self) -> Dict[str, Any]:
+        """Get current agent configurations"""
+        configurations = {}
+        available_models = self.ai_model_manager.get_all_models()
+        
+        for agent_id, agent in self.collaborative_agents.items():
+            current_model = self.ai_model_manager.get_model(agent.model_id)
+            configurations[agent_id] = {
+                'name': agent.name,
+                'specialization': agent.specialization,
+                'current_model': {
+                    'id': current_model.id if current_model else None,
+                    'name': current_model.name if current_model else 'Unknown',
+                    'provider': current_model.provider.value if current_model else 'Unknown'
+                },
+                'confidence_threshold': agent.confidence_threshold,
+                'is_active': agent.is_active,
+                'current_sessions': len(agent.current_sessions),
+                'max_concurrent_sessions': agent.max_concurrent_sessions
+            }
+        
+        return {
+            'agents': configurations,
+            'available_models': [
+                {
+                    'id': model.id,
+                    'name': model.name,
+                    'provider': model.provider.value
+                }
+                for model in available_models
+            ]
+        }
+    
     async def process_collaborative_query(self, query: str, 
                                         enable_rag: bool = False,
                                         max_agents: int = 3,
-                                        collaboration_timeout: int = 300) -> Dict[str, Any]:
+                                        collaboration_timeout: int = 300,
+                                        selected_agents: List[str] = None) -> Dict[str, Any]:
         """Process a query using collaborative AI agents"""
         
-        # Select best agents for this query
-        selected_agents = self._select_agents_for_query(query, max_agents)
-        
-        if not selected_agents:
-            return {
-                'error': 'No suitable agents available for collaboration',
-                'query': query,
-                'timestamp': datetime.now().isoformat()
-            }
+        # Select agents - either user-specified or automatically selected
+        if selected_agents:
+            # User specified agents
+            agent_objects = []
+            for agent_id in selected_agents:
+                if agent_id in self.collaborative_agents:
+                    agent = self.collaborative_agents[agent_id]
+                    if agent.is_active and len(agent.current_sessions) < agent.max_concurrent_sessions:
+                        agent_objects.append(agent)
+            
+            if not agent_objects:
+                return {
+                    'error': 'No suitable agents available from selection',
+                    'query': query,
+                    'timestamp': datetime.now().isoformat()
+                }
+            
+            selected_agents = agent_objects
+        else:
+            # Auto-select best agents for this query
+            selected_agents = self._select_agents_for_query(query, max_agents)
+            
+            if not selected_agents:
+                return {
+                    'error': 'No suitable agents available for collaboration',
+                    'query': query,
+                    'timestamp': datetime.now().isoformat()
+                }
         
         # Create collaboration session
         session_id = self.shared_memory.create_session(

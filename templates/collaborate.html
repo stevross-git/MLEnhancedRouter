@@ -18,6 +18,9 @@
                     <button class="btn btn-secondary" onclick="viewSharedMemory()">
                         <i class="fas fa-memory me-1"></i>Shared Memory
                     </button>
+                    <button class="btn btn-primary" onclick="configureAgents()">
+                        <i class="fas fa-cogs me-1"></i>Configure Agents
+                    </button>
                 </div>
             </div>
         </div>
@@ -67,6 +70,22 @@
                                 <label class="form-check-label" for="enableRAG">
                                     Enable RAG (Document Context)
                                 </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="manualAgentSelection" name="manualAgentSelection">
+                                <label class="form-check-label" for="manualAgentSelection">
+                                    Manual Agent Selection
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div id="agentSelectionPanel" class="mb-3" style="display: none;">
+                            <label class="form-label">Select Agents:</label>
+                            <div id="agentCheckboxes">
+                                <!-- Agent checkboxes will be populated here -->
                             </div>
                         </div>
                         
@@ -178,9 +197,43 @@
     </div>
 </div>
 
+<!-- Agent Configuration Modal -->
+<div class="modal fade" id="agentConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Configure Collaborative Agents</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="agentConfigContent">
+                    <!-- Agent configuration content will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let currentSessionId = null;
 let collaborationActive = false;
+let agentConfigurations = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadAgentConfigurations();
+    
+    // Manual agent selection toggle
+    document.getElementById('manualAgentSelection').addEventListener('change', function() {
+        const panel = document.getElementById('agentSelectionPanel');
+        if (this.checked) {
+            panel.style.display = 'block';
+            populateAgentCheckboxes();
+        } else {
+            panel.style.display = 'none';
+        }
+    });
+});
 
 // Form submission
 document.getElementById('collaborateForm').addEventListener('submit', async function(e) {
@@ -191,16 +244,28 @@ document.getElementById('collaborateForm').addEventListener('submit', async func
     const maxAgents = parseInt(formData.get('maxAgents'));
     const timeout = parseInt(formData.get('timeout'));
     const enableRAG = formData.get('enableRAG') === 'on';
+    const manualSelection = formData.get('manualAgentSelection') === 'on';
     
     if (!query.trim()) {
         alert('Please enter a query');
         return;
     }
     
-    await startCollaboration(query, maxAgents, timeout, enableRAG);
+    let selectedAgents = null;
+    if (manualSelection) {
+        selectedAgents = Array.from(document.querySelectorAll('#agentCheckboxes input:checked'))
+            .map(cb => cb.value);
+        
+        if (selectedAgents.length === 0) {
+            alert('Please select at least one agent');
+            return;
+        }
+    }
+    
+    await startCollaboration(query, maxAgents, timeout, enableRAG, selectedAgents);
 });
 
-async function startCollaboration(query, maxAgents, timeout, enableRAG) {
+async function startCollaboration(query, maxAgents, timeout, enableRAG, selectedAgents = null) {
     try {
         collaborationActive = true;
         showStatus('Starting collaboration...');
@@ -214,7 +279,8 @@ async function startCollaboration(query, maxAgents, timeout, enableRAG) {
                 query: query,
                 max_agents: maxAgents,
                 timeout: timeout,
-                enable_rag: enableRAG
+                enable_rag: enableRAG,
+                selected_agents: selectedAgents
             })
         });
         
@@ -455,6 +521,136 @@ function exportSession() {
     a.download = `collaboration_session_${currentSessionId.substr(0, 8)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+}
+
+async function loadAgentConfigurations() {
+    try {
+        const response = await fetch('/api/collaborate/agents');
+        agentConfigurations = await response.json();
+    } catch (error) {
+        console.error('Error loading agent configurations:', error);
+    }
+}
+
+function populateAgentCheckboxes() {
+    const container = document.getElementById('agentCheckboxes');
+    if (!agentConfigurations || !agentConfigurations.agents) {
+        container.innerHTML = '<p class="text-muted">No agents available</p>';
+        return;
+    }
+    
+    let html = '';
+    Object.entries(agentConfigurations.agents).forEach(([agentId, agent]) => {
+        html += `
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="agent_${agentId}" value="${agentId}">
+                <label class="form-check-label" for="agent_${agentId}">
+                    <strong>${agent.name}</strong>
+                    <small class="text-muted d-block">${agent.specialization}</small>
+                    <small class="text-info">Model: ${agent.current_model.name}</small>
+                </label>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+async function configureAgents() {
+    try {
+        // Load fresh configurations
+        await loadAgentConfigurations();
+        
+        const configContent = document.getElementById('agentConfigContent');
+        
+        if (!agentConfigurations || !agentConfigurations.agents) {
+            configContent.innerHTML = '<p class="text-muted">No agents available</p>';
+            return;
+        }
+        
+        let html = `
+            <div class="row">
+                <div class="col-md-12">
+                    <h6>Configure AI Models for Each Agent</h6>
+                    <p class="text-muted">Select which AI model each specialized agent should use.</p>
+                </div>
+            </div>
+        `;
+        
+        Object.entries(agentConfigurations.agents).forEach(([agentId, agent]) => {
+            html += `
+                <div class="card bg-secondary border-secondary mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <h6 class="card-title">${agent.name}</h6>
+                                <p class="text-muted mb-0">${agent.specialization}</p>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">AI Model:</label>
+                                <select class="form-select" id="model_${agentId}" onchange="updateAgentModel('${agentId}', this.value)">
+                                    ${agentConfigurations.available_models.map(model => `
+                                        <option value="${model.id}" ${model.id === agent.current_model.id ? 'selected' : ''}>
+                                            ${model.name} (${model.provider})
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-end">
+                                    <small class="text-muted d-block">Sessions: ${agent.current_sessions}/${agent.max_concurrent_sessions}</small>
+                                    <small class="text-muted d-block">Confidence: ${(agent.confidence_threshold * 100).toFixed(0)}%</small>
+                                    <span class="badge ${agent.is_active ? 'bg-success' : 'bg-secondary'}">${agent.is_active ? 'Active' : 'Inactive'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        configContent.innerHTML = html;
+        new bootstrap.Modal(document.getElementById('agentConfigModal')).show();
+        
+    } catch (error) {
+        alert('Error loading agent configurations: ' + error.message);
+    }
+}
+
+async function updateAgentModel(agentId, modelId) {
+    try {
+        const response = await fetch(`/api/collaborate/agents/${agentId}/model`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model_id: modelId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            alert('Error updating agent model: ' + result.error);
+            return;
+        }
+        
+        // Refresh configurations
+        await loadAgentConfigurations();
+        
+        // Show success message
+        const selectElement = document.getElementById(`model_${agentId}`);
+        const originalClass = selectElement.className;
+        selectElement.className = originalClass + ' border-success';
+        
+        setTimeout(() => {
+            selectElement.className = originalClass;
+        }, 2000);
+        
+    } catch (error) {
+        alert('Error updating agent model: ' + error.message);
+    }
 }
 </script>
 {% endblock %}
