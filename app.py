@@ -21,6 +21,7 @@ from model_manager import ModelManager, ModelType
 from ai_models import AIModelManager, AIProvider
 from auth_system import AuthManager, UserRole
 from ai_cache import get_cache_manager
+from rag_chat import get_rag_chat
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -56,10 +57,11 @@ model_manager = None
 ai_model_manager = None
 auth_manager = None
 cache_manager = None
+rag_system = None
 
 def initialize_router():
     """Initialize the ML router in a background thread"""
-    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager
+    global router, router_config, model_manager, ai_model_manager, auth_manager, cache_manager, rag_system
     
     try:
         with app.app_context():
@@ -68,6 +70,7 @@ def initialize_router():
             ai_model_manager = AIModelManager(db)
             auth_manager = AuthManager()
             cache_manager = get_cache_manager(db)
+            rag_system = get_rag_chat()
             router = MLEnhancedQueryRouter(router_config, model_manager)
             
             # Initialize ML models
@@ -1288,6 +1291,119 @@ def create_chat_session():
         return jsonify(session_data)
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# RAG System Endpoints
+@app.route('/api/rag/upload', methods=['POST'])
+def upload_document():
+    """Upload a document for RAG processing"""
+    try:
+        global rag_system
+        if not rag_system:
+            return jsonify({'error': 'RAG system not initialized'}), 500
+        
+        # Check if file is uploaded
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Save file temporarily
+        temp_path = f"./temp_{file.filename}"
+        file.save(temp_path)
+        
+        try:
+            # Process the uploaded file
+            doc_id = rag_system.process_uploaded_file(temp_path, file.filename)
+            
+            if doc_id:
+                return jsonify({
+                    'message': 'Document uploaded successfully',
+                    'document_id': doc_id,
+                    'filename': file.filename
+                })
+            else:
+                return jsonify({'error': 'Failed to process document'}), 500
+                
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                
+    except Exception as e:
+        logger.error(f"Error uploading document: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rag/documents', methods=['GET'])
+def list_documents():
+    """List all uploaded documents"""
+    try:
+        global rag_system
+        if not rag_system:
+            return jsonify({'error': 'RAG system not initialized'}), 500
+        
+        documents = rag_system.get_documents_list()
+        return jsonify({'documents': documents})
+        
+    except Exception as e:
+        logger.error(f"Error listing documents: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rag/documents/<doc_id>', methods=['DELETE'])
+def delete_document(doc_id):
+    """Delete a document from RAG system"""
+    try:
+        global rag_system
+        if not rag_system:
+            return jsonify({'error': 'RAG system not initialized'}), 500
+        
+        success = rag_system.delete_document(doc_id)
+        if success:
+            return jsonify({'message': 'Document deleted successfully'})
+        else:
+            return jsonify({'error': 'Document not found'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error deleting document: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rag/search', methods=['POST'])
+def search_documents():
+    """Search documents using RAG system"""
+    try:
+        global rag_system
+        if not rag_system:
+            return jsonify({'error': 'RAG system not initialized'}), 500
+        
+        data = request.get_json()
+        query = data.get('query', '')
+        max_results = data.get('max_results', 3)
+        
+        if not query:
+            return jsonify({'error': 'Query is required'}), 400
+        
+        results = rag_system.search_documents(query, max_results)
+        return jsonify({'results': results})
+        
+    except Exception as e:
+        logger.error(f"Error searching documents: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rag/stats', methods=['GET'])
+def rag_stats():
+    """Get RAG system statistics"""
+    try:
+        global rag_system
+        if not rag_system:
+            return jsonify({'error': 'RAG system not initialized'}), 500
+        
+        stats = rag_system.get_stats()
+        return jsonify(stats)
+        
+    except Exception as e:
+        logger.error(f"Error getting RAG stats: {e}")
         return jsonify({'error': str(e)}), 500
 
 # Initialize database

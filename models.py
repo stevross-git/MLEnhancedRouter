@@ -2,6 +2,7 @@ from app import db
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, JSON
 import hashlib
+import uuid
 
 class QueryLog(db.Model):
     """Log of all queries processed by the router"""
@@ -149,3 +150,56 @@ class ChatMessage(db.Model):
     
     def __repr__(self):
         return f'<ChatMessage {self.id}: {self.role} - {self.content[:50]}...>'
+
+# RAG System Models
+class Document(db.Model):
+    """Document model for storing uploaded documents"""
+    __tablename__ = 'documents'
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    filename = Column(String(255), nullable=False)
+    original_name = Column(String(255), nullable=False)
+    file_type = Column(String(50), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    file_hash = Column(String(64), nullable=False, unique=True)
+    content = Column(Text, nullable=True)
+    document_metadata = Column(JSON, nullable=True)
+    uploaded_by = Column(String(100), nullable=False, default='anonymous')
+    uploaded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
+    is_processed = Column(Boolean, default=False)
+    chunk_count = Column(Integer, default=0)
+    
+    def __repr__(self):
+        return f'<Document {self.id}: {self.original_name}>'
+
+class DocumentChunk(db.Model):
+    """Document chunk model for storing text chunks with embeddings"""
+    __tablename__ = 'document_chunks'
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    document_id = Column(String(36), db.ForeignKey('documents.id'), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    chunk_metadata = Column(JSON, nullable=True)
+    embedding_id = Column(String(100), nullable=True)  # ChromaDB embedding ID
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<DocumentChunk {self.id}: {self.document_id}[{self.chunk_index}]>'
+
+class RAGQuery(db.Model):
+    """RAG query model for storing search queries and results"""
+    __tablename__ = 'rag_queries'
+    
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    query = Column(Text, nullable=False)
+    query_hash = Column(String(64), nullable=False, index=True)
+    user_id = Column(String(100), nullable=False, default='anonymous')
+    retrieved_chunks = Column(JSON, nullable=True)
+    context_used = Column(Text, nullable=True)
+    response_generated = Column(Boolean, default=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<RAGQuery {self.id}: {self.query[:50]}...>'

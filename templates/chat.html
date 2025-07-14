@@ -39,6 +39,34 @@
                     </div>
                 </div>
                 
+                <!-- RAG Section -->
+                <div class="p-3 border-top border-secondary">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">Document RAG</small>
+                        <button class="btn btn-sm btn-outline-light" onclick="toggleRAGPanel()" title="Toggle RAG Panel">
+                            <i class="fas fa-file-alt"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="rag-enabled">
+                        <label class="form-check-label small" for="rag-enabled">
+                            Enable RAG
+                        </label>
+                    </div>
+                    
+                    <div id="rag-stats" class="small text-muted">
+                        <div>Documents: <span id="doc-count">0</span></div>
+                        <div>Chunks: <span id="chunk-count">0</span></div>
+                    </div>
+                    
+                    <div class="mt-2">
+                        <input type="file" class="form-control form-control-sm" id="rag-file-input" 
+                               accept=".pdf,.docx,.txt,.md,.html,.json,.csv" multiple>
+                        <small class="text-muted">PDF, DOCX, TXT, MD, HTML, JSON, CSV</small>
+                    </div>
+                </div>
+                
                 <!-- Chat Settings -->
                 <div class="p-3 border-top border-secondary">
                     <div class="mb-2">
@@ -197,6 +225,90 @@
         </div>
     </div>
 </template>
+
+<!-- RAG Panel Modal -->
+<div class="modal fade" id="ragPanel" tabindex="-1" aria-labelledby="ragPanelLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ragPanelLabel">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Document RAG Management
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Upload Section -->
+                <div class="mb-4">
+                    <h6>Upload Documents</h6>
+                    <div class="input-group">
+                        <input type="file" class="form-control" id="modal-file-input" 
+                               accept=".pdf,.docx,.txt,.md,.html,.json,.csv" multiple>
+                        <button class="btn btn-primary" type="button" onclick="uploadRAGDocuments()">
+                            <i class="fas fa-upload"></i> Upload
+                        </button>
+                    </div>
+                    <small class="text-muted">Supported formats: PDF, DOCX, TXT, MD, HTML, JSON, CSV</small>
+                </div>
+                
+                <!-- Statistics -->
+                <div class="mb-4">
+                    <h6>Statistics</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="modal-doc-count">0</h4>
+                                    <small>Documents</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="modal-chunk-count">0</h4>
+                                    <small>Chunks</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="modal-file-types">0</h4>
+                                    <small>File Types</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="modal-collection-status">✓</h4>
+                                    <small>Vector DB</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Document List -->
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6>Uploaded Documents</h6>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="refreshDocuments()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="rag-documents-list">
+                        <!-- Document list will be populated here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
 .chat-sidebar {
@@ -864,6 +976,181 @@ function toggleSidebar() {
     const sidebar = document.querySelector('.chat-sidebar').parentElement;
     sidebar.classList.toggle('d-none');
 }
+
+// RAG Functions
+function toggleRAGPanel() {
+    const ragPanel = new bootstrap.Modal(document.getElementById('ragPanel'));
+    ragPanel.show();
+    loadRAGStats();
+    loadRAGDocuments();
+}
+
+function loadRAGStats() {
+    fetch('/api/rag/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error loading RAG stats:', data.error);
+                return;
+            }
+            
+            // Update sidebar stats
+            document.getElementById('doc-count').textContent = data.total_documents || 0;
+            document.getElementById('chunk-count').textContent = data.total_chunks || 0;
+            
+            // Update modal stats
+            document.getElementById('modal-doc-count').textContent = data.total_documents || 0;
+            document.getElementById('modal-chunk-count').textContent = data.total_chunks || 0;
+            document.getElementById('modal-file-types').textContent = Object.keys(data.file_types || {}).length;
+            document.getElementById('modal-collection-status').textContent = data.collection_initialized ? '✓' : '✗';
+        })
+        .catch(error => {
+            console.error('Error loading RAG stats:', error);
+        });
+}
+
+function loadRAGDocuments() {
+    fetch('/api/rag/documents')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error loading documents:', data.error);
+                return;
+            }
+            
+            const container = document.getElementById('rag-documents-list');
+            container.innerHTML = '';
+            
+            if (data.documents.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-3">No documents uploaded yet</div>';
+                return;
+            }
+            
+            data.documents.forEach(doc => {
+                const docElement = document.createElement('div');
+                docElement.className = 'card mb-2';
+                docElement.innerHTML = `
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">${doc.filename}</h6>
+                                <small class="text-muted">
+                                    Type: ${doc.file_type} | Chunks: ${doc.chunk_count || 0} | 
+                                    Added: ${new Date(doc.added_at).toLocaleDateString()}
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteRAGDocument('${doc.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(docElement);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading documents:', error);
+        });
+}
+
+function uploadRAGDocuments() {
+    const fileInput = document.getElementById('modal-file-input');
+    const files = fileInput.files;
+    
+    if (files.length === 0) {
+        alert('Please select files to upload');
+        return;
+    }
+    
+    Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('/api/rag/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(`Error uploading ${file.name}: ${data.error}`);
+            } else {
+                console.log(`Successfully uploaded ${file.name}`);
+                loadRAGStats();
+                loadRAGDocuments();
+            }
+        })
+        .catch(error => {
+            console.error(`Error uploading ${file.name}:`, error);
+            alert(`Error uploading ${file.name}: ${error.message}`);
+        });
+    });
+    
+    // Clear the file input
+    fileInput.value = '';
+}
+
+function deleteRAGDocument(docId) {
+    if (confirm('Are you sure you want to delete this document?')) {
+        fetch(`/api/rag/documents/${docId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(`Error deleting document: ${data.error}`);
+            } else {
+                loadRAGStats();
+                loadRAGDocuments();
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting document:', error);
+            alert(`Error deleting document: ${error.message}`);
+        });
+    }
+}
+
+function refreshDocuments() {
+    loadRAGStats();
+    loadRAGDocuments();
+}
+
+// Handle file upload for RAG in sidebar
+document.getElementById('rag-file-input').addEventListener('change', function(e) {
+    const files = e.target.files;
+    if (files.length === 0) return;
+    
+    Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch('/api/rag/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(`Error uploading ${file.name}: ${data.error}`);
+            } else {
+                console.log(`Successfully uploaded ${file.name}`);
+                loadRAGStats();
+            }
+        })
+        .catch(error => {
+            console.error(`Error uploading ${file.name}:`, error);
+        });
+    });
+    
+    // Clear the file input
+    e.target.value = '';
+});
+
+// Load RAG stats on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadRAGStats();
+});
 
 // Start with a new chat
 newChat();

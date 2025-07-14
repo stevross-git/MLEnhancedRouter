@@ -27,6 +27,14 @@ Preferred communication style: Simple, everyday language.
 ✓ Replaced file-based cache with database models (AICacheEntry, AICacheStats)
 ✓ Added comprehensive cache endpoints for statistics, entries, and management
 ✓ Implemented database-backed cache with hit tracking and expiration management
+✓ Integrated RAG (Retrieval-Augmented Generation) system with ChromaDB
+✓ Added document upload support (PDF, DOCX, TXT, MD, HTML, JSON, CSV)
+✓ Implemented document chunking and vector embedding for semantic search
+✓ Created RAG management interface in chat sidebar with upload and statistics
+✓ Added RAG panel modal for comprehensive document management
+✓ Integrated RAG context enhancement for AI responses with document search
+✓ Built RAG API endpoints for document upload, management, and search
+✓ Fixed database model metadata conflicts with SQLAlchemy reserved attributes
 
 ## System Architecture
 
