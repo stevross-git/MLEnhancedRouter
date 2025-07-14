@@ -1,0 +1,144 @@
+# Enhanced CSP Network dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+cryptography>=41.0.0
+base58>=2.1.0
+aiohttp>=3.8.5
+aiosqlite>=0.21.0
+asyncpg>=0.30.0
+aiofiles>=24.1.0
+
+# ML Router dependencies
+Flask>=3.1.1
+flask-sqlalchemy>=3.0.0
+flask-cors>=6.0.1
+Werkzeug>=3.0.0
+Jinja2>=3.1.0
+click>=8.0.0
+
+# ML and NLP dependencies
+torch>=2.0.1
+transformers>=4.30.2
+sentence-transformers>=2.2.2
+numpy>=1.24.3
+scikit-learn>=1.3.0
+pandas>=2.0.0
+
+# Network and async dependencies
+asyncio-mqtt>=0.11.0
+websockets>=12.0
+python-socketio>=5.0.0
+python-engineio>=4.0.0
+
+# Database dependencies
+SQLAlchemy>=2.0.0
+sqlite3  # Built-in with Python
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+
+# Caching dependencies
+redis>=5.0.0
+aioredis>=2.0.0
+
+# Authentication and security
+PyJWT>=2.8.0
+passlib>=1.7.4
+python-multipart>=0.0.6
+bcrypt>=4.0.0
+
+# Monitoring and metrics
+prometheus-client>=0.17.1
+structlog>=23.0.0
+
+# Configuration and environment
+python-dotenv>=1.0.0
+pyyaml>=6.0.0
+toml>=0.10.0
+
+# HTTP and API dependencies
+requests>=2.31.0
+httpx>=0.25.0
+aiohttp>=3.8.5
+
+# Utilities
+click>=8.0.0
+rich>=13.0.0
+typer>=0.9.0
+pathlib-ext>=1.0.0
+
+# Development and testing dependencies (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Optional AI provider dependencies
+openai>=1.0.0
+anthropic>=0.5.0
+google-generativeai>=0.3.0
+
+# Optional document processing for RAG
+pypdf>=3.0.0
+python-docx>=0.8.11
+python-markdown>=3.5.0
+beautifulsoup4>=4.12.0
+
+# Optional vector database for RAG
+chromadb>=0.4.0
+sentence-transformers>=2.2.2
+
+# Optional performance optimizations
+uvloop>=0.19.0  # Faster event loop for Unix systems
+orjson>=3.9.0  # Faster JSON parsing
+
+# Network utilities
+netifaces>=0.11.0
+psutil>=5.9.0
+dnspython>=2.4.0
+zeroconf>=0.100.0
+
+# Serialization and data handling
+msgpack>=1.0.0
+pickle5>=0.0.11  # Better pickle for Python < 3.8
+lz4>=4.3.0  # Fast compression
+brotli>=1.1.0  # Compression
+
+# Async utilities
+asyncio-throttle>=1.0.0
+aiofiles>=23.0.0
+aiolimiter>=1.1.0
+
+# Network protocol utilities
+multiaddr>=0.0.9
+base32>=1.2.0
+cbor2>=5.4.0
+
+# Optional hardware acceleration
+# torch-audio>=2.0.0  # Audio processing
+# torchvision>=0.15.0  # Image processing
+
+# Optional quantum computing (if quantum features enabled)
+# qiskit>=0.45.0
+# cirq>=1.0.0
+
+# Optional blockchain (if blockchain features enabled)
+# web3>=6.0.0
+# eth-account>=0.9.0
+
+# Web server and deployment
+gunicorn>=21.0.0  # WSGI server for production
+eventlet>=0.33.0  # Async worker support
+
+# Optional monitoring and observability
+# jaeger-client>=4.8.0  # Distributed tracing
+# opencensus>=0.11.0  # Metrics and tracing
+# sentry-sdk>=1.30.0  # Error tracking
+
+# Development utilities (optional)
+# jupyter>=1.0.0  # Notebook environment
+# ipython>=8.0.0  # Interactive Python
+# notebook>=7.0.0  # Jupyter notebook server

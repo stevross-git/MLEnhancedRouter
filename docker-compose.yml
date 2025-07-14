@@ -1,0 +1,250 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # ML Enhanced Router with CSP Network Integration
+  # ============================================================================
+  ml-router-network:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - PYTHON_VERSION=3.11
+    container_name: ml-router-network
+    restart: unless-stopped
+    ports:
+      - "5000:5000"      # ML Router HTTP interface
+      - "30405:30405"    # CSP Network P2P port
+    environment:
+      # Database configuration
+      - DATABASE_URL=postgresql://ml_router:ml_router_password@postgres:5432/ml_router_network
+      
+      # Session configuration
+      - SESSION_SECRET=secure-session-secret-change-in-production
+      
+      # CSP Network configuration
+      - CSP_NETWORK_ENABLED=true
+      - CSP_NETWORK_PORT=30405
+      - CSP_NETWORK_NODE_NAME=ml-router-docker
+      - CSP_NETWORK_GENESIS_HOST=genesis.peoplesainetwork.com
+      - CSP_NETWORK_GENESIS_PORT=30300
+      
+      # ML Router configuration
+      - ML_ROUTER_ENABLED=true
+      - ML_ROUTER_PORT=5000
+      - ML_ROUTER_HOST=0.0.0.0
+      
+      # Feature flags
+      - ENABLE_DHT=true
+      - ENABLE_MESH=true
+      - ENABLE_ADAPTIVE_ROUTING=true
+      - ENABLE_ML_PREDICTION=true
+      
+      # Redis configuration
+      - REDIS_URL=redis://redis:6379/0
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      
+      # AI Provider API keys (set these in .env file)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      
+    volumes:
+      - ml_router_data:/app/ml_router_network_data
+      - ml_router_logs:/app/logs
+      - ./config:/app/config:ro
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ml_router_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ml-router-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=ml_router_network
+      - POSTGRES_USER=ml_router
+      - POSTGRES_PASSWORD=ml_router_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"  # Expose for external access if needed
+    networks:
+      - ml_router_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ml_router -d ml_router_network"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # Redis Cache
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ml-router-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"  # Expose for external access if needed
+    networks:
+      - ml_router_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ============================================================================
+  # Prometheus Metrics (Optional)
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ml-router-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - ml_router_network
+    profiles:
+      - monitoring
+
+  # ============================================================================
+  # Grafana Dashboard (Optional)
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ml-router-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - ml_router_network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+  # ============================================================================
+  # Nginx Reverse Proxy (Optional)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: ml-router-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - ml-router-network
+    networks:
+      - ml_router_network
+    profiles:
+      - production
+
+  # ============================================================================
+  # Log Aggregator (Optional)
+  # ============================================================================
+  loki:
+    image: grafana/loki:latest
+    container_name: ml-router-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - ml_router_network
+    profiles:
+      - logging
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: ml-router-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ml_router_logs:/var/log/ml-router:ro
+      - /var/log:/var/log/host:ro
+    networks:
+      - ml_router_network
+    depends_on:
+      - loki
+    profiles:
+      - logging
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  ml_router_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  ml_router_data:
+    driver: local
+  ml_router_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+
+# ============================================================================
+# Development Override
+# ============================================================================
+# To use development overrides, run:
+# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
