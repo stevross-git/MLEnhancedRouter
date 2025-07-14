@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Query Router API Documentation</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: var(--bs-dark);
+            color: var(--bs-light);
+        }
+        .api-header {
+            background: var(--bs-primary);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .endpoint-card {
+            background: var(--bs-dark);
+            border: 1px solid var(--bs-secondary);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        .endpoint-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--bs-secondary);
+            cursor: pointer;
+        }
+        .endpoint-header:hover {
+            background: var(--bs-secondary);
+        }
+        .endpoint-body {
+            padding: 1.5rem;
+            display: none;
+        }
+        .endpoint-body.active {
+            display: block;
+        }
+        .method-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        .method-get { background: var(--bs-success); color: white; }
+        .method-post { background: var(--bs-primary); color: white; }
+        .method-put { background: var(--bs-warning); color: white; }
+        .method-delete { background: var(--bs-danger); color: white; }
+        .schema-box {
+            background: var(--bs-dark);
+            border: 1px solid var(--bs-secondary);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .try-button {
+            background: var(--bs-info);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        .try-button:hover {
+            background: var(--bs-info);
+            opacity: 0.8;
+        }
+        .response-box {
+            background: var(--bs-dark);
+            border: 1px solid var(--bs-success);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .tag-section {
+            margin-bottom: 2rem;
+        }
+        .tag-header {
+            background: var(--bs-secondary);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .swagger-ui {
+            background: var(--bs-dark);
+            color: var(--bs-light);
+        }
+    </style>
+</head>
+<body>
+    <div class="api-header">
+        <div class="container">
+            <h1><i class="fas fa-code"></i> ML Query Router API Documentation</h1>
+            <p class="lead">Interactive API documentation for the ML-Enhanced Query Router</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card bg-dark border-secondary mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">API Information</h5>
+                        <p class="card-text">
+                            This API provides intelligent query routing, AI model management, and RAG capabilities.
+                            All endpoints return JSON responses and support standard HTTP status codes.
+                        </p>
+                        <p class="card-text">
+                            <strong>Base URL:</strong> <code>http://localhost:5000</code><br>
+                            <strong>Version:</strong> 1.0.0<br>
+                            <strong>Content-Type:</strong> application/json
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Swagger UI Container -->
+                <div id="swagger-ui"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Swagger UI -->
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js"></script>
+    <script>
+        // Initialize Swagger UI
+        const ui = SwaggerUIBundle({
+            url: '/api/openapi.json',
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset
+            ],
+            plugins: [
+                SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "StandaloneLayout",
+            theme: "dark",
+            tryItOutEnabled: true,
+            requestInterceptor: (request) => {
+                // Add any authentication headers here if needed
+                return request;
+            },
+            responseInterceptor: (response) => {
+                return response;
+            }
+        });
+
+        // Custom styling for dark theme
+        const style = document.createElement('style');
+        style.textContent = `
+            .swagger-ui {
+                filter: invert(1) hue-rotate(180deg);
+            }
+            .swagger-ui .highlight-code {
+                filter: invert(1) hue-rotate(180deg);
+            }
+            .swagger-ui .response-col_status {
+                filter: invert(1) hue-rotate(180deg);
+            }
+            .swagger-ui .response-col_links {
+                filter: invert(1) hue-rotate(180deg);
+            }
+            .swagger-ui .btn {
+                filter: invert(1) hue-rotate(180deg);
+            }
+            .swagger-ui .topbar {
+                display: none;
+            }
+            .swagger-ui .info {
+                margin: 0;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

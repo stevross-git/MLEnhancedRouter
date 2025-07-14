@@ -22,6 +22,7 @@ from ai_models import AIModelManager, AIProvider
 from auth_system import AuthManager, UserRole
 from ai_cache import get_cache_manager
 from rag_chat import get_rag_chat
+from swagger_spec import swagger_spec
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -1405,6 +1406,17 @@ def rag_stats():
     except Exception as e:
         logger.error(f"Error getting RAG stats: {e}")
         return jsonify({'error': str(e)}), 500
+
+# Swagger Documentation Endpoints
+@app.route('/api/docs', methods=['GET'])
+def api_docs():
+    """Interactive API documentation"""
+    return render_template('api_docs.html')
+
+@app.route('/api/openapi.json', methods=['GET'])
+def openapi_spec():
+    """OpenAPI/Swagger specification"""
+    return jsonify(swagger_spec)
 
 # Initialize database
 with app.app_context():
