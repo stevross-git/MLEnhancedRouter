@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Home - ML Query Router{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    Submit Query
+                </h4>
+            </div>
+            <div class="card-body">
+                <form id="queryForm">
+                    <div class="mb-3">
+                        <label for="query" class="form-label">Enter your query:</label>
+                        <textarea class="form-control" id="query" name="query" rows="4" 
+                                  placeholder="Ask me anything..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userId" class="form-label">User ID (optional):</label>
+                        <input type="text" class="form-control" id="userId" name="userId" 
+                               placeholder="Enter your user ID">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-1"></i>
+                        Submit Query
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div id="resultCard" class="card mt-4" style="display: none;">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-robot me-2"></i>
+                    Query Result
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="queryResult"></div>
+            </div>
+        </div>
+
+        <div id="loadingCard" class="card mt-4" style="display: none;">
+            <div class="card-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 mb-0">Processing your query...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Supported Query Categories
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <span class="badge bg-primary me-2">Analysis</span>
+                            <small class="text-muted">Data analysis, patterns, insights</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-success me-2">Creative</span>
+                            <small class="text-muted">Writing, storytelling, design</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-info me-2">Technical</span>
+                            <small class="text-muted">System architecture, infrastructure</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-warning me-2">Mathematical</span>
+                            <small class="text-muted">Calculations, equations, formulas</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-danger me-2">Coding</span>
+                            <small class="text-muted">Programming, debugging, algorithms</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <span class="badge bg-secondary me-2">Research</span>
+                            <small class="text-muted">Literature, studies, investigation</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-dark me-2">Philosophical</span>
+                            <small class="text-muted">Ethics, meaning, existence</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-light text-dark me-2">Practical</span>
+                            <small class="text-muted">How-to guides, tutorials</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-primary me-2">Educational</span>
+                            <small class="text-muted">Teaching, explaining, learning</small>
+                        </div>
+                        <div class="mb-3">
+                            <span class="badge bg-success me-2">Conversational</span>
+                            <small class="text-muted">Chat, discussion, opinions</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('queryForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const query = document.getElementById('query').value;
+    const userId = document.getElementById('userId').value;
+    
+    if (!query.trim()) {
+        alert('Please enter a query');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('loadingCard').style.display = 'block';
+    document.getElementById('resultCard').style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/query', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: query,
+                user_id: userId || 'anonymous'
+            })
+        });
+        
+        const result = await response.json();
+        
+        // Hide loading
+        document.getElementById('loadingCard').style.display = 'none';
+        
+        // Show result
+        displayResult(result);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('loadingCard').style.display = 'none';
+        
+        displayResult({
+            error: 'Network error occurred',
+            status: 'error'
+        });
+    }
+});
+
+function displayResult(result) {
+    const resultDiv = document.getElementById('queryResult');
+    const resultCard = document.getElementById('resultCard');
+    
+    if (result.error) {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Error:</strong> ${result.error}
+                ${result.message ? `<br><small>${result.message}</small>` : ''}
+            </div>
+        `;
+    } else {
+        resultDiv.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Classification</h6>
+                    <p>
+                        <span class="badge bg-primary me-2">${result.category}</span>
+                        <small class="text-muted">Confidence: ${(result.confidence * 100).toFixed(1)}%</small>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <h6>Routed Agent</h6>
+                    <p>
+                        <i class="fas fa-robot me-1"></i>
+                        ${result.agent_name || 'Unknown Agent'}
+                    </p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <h6>Response</h6>
+                <div class="alert alert-info">
+                    ${result.response || 'No response available'}
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Response Time: ${result.response_time ? (result.response_time * 1000).toFixed(0) + 'ms' : 'N/A'}
+                    </small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted">
+                        <i class="fas fa-calendar me-1"></i>
+                        ${result.timestamp ? new Date(result.timestamp).toLocaleString() : 'N/A'}
+                    </small>
+                </div>
+            </div>
+        `;
+    }
+    
+    resultCard.style.display = 'block';
+}
+</script>
+{% endblock %}

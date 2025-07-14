@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Agents - ML Query Router{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>
+                    <i class="fas fa-robot me-2"></i>
+                    Agent Management
+                </h2>
+                <p class="text-muted">Manage and monitor AI agents</p>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registerAgentModal">
+                <i class="fas fa-plus me-1"></i>
+                Register Agent
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Registered Agents
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="agentsTable">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading agents...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Agent Modal -->
+<div class="modal fade" id="registerAgentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>
+                    Register New Agent
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="registerAgentForm">
+                    <div class="mb-3">
+                        <label for="agentName" class="form-label">Agent Name</label>
+                        <input type="text" class="form-control" id="agentName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agentDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="agentDescription" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agentEndpoint" class="form-label">Endpoint URL</label>
+                        <input type="url" class="form-control" id="agentEndpoint" name="endpoint" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="agentCategories" class="form-label">Categories</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="analysis" id="cat_analysis">
+                                    <label class="form-check-label" for="cat_analysis">Analysis</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="creative" id="cat_creative">
+                                    <label class="form-check-label" for="cat_creative">Creative</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="technical" id="cat_technical">
+                                    <label class="form-check-label" for="cat_technical">Technical</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="mathematical" id="cat_mathematical">
+                                    <label class="form-check-label" for="cat_mathematical">Mathematical</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="coding" id="cat_coding">
+                                    <label class="form-check-label" for="cat_coding">Coding</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="research" id="cat_research">
+                                    <label class="form-check-label" for="cat_research">Research</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="philosophical" id="cat_philosophical">
+                                    <label class="form-check-label" for="cat_philosophical">Philosophical</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="practical" id="cat_practical">
+                                    <label class="form-check-label" for="cat_practical">Practical</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="educational" id="cat_educational">
+                                    <label class="form-check-label" for="cat_educational">Educational</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="conversational" id="cat_conversational">
+                                    <label class="form-check-label" for="cat_conversational">Conversational</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="registerAgent()">Register Agent</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let agents = [];
+
+// Load agents on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadAgents();
+});
+
+async function loadAgents() {
+    try {
+        const response = await fetch('/api/agents');
+        const data = await response.json();
+        
+        if (data.agents) {
+            agents = data.agents;
+            displayAgents();
+        } else {
+            displayError('Failed to load agents');
+        }
+    } catch (error) {
+        console.error('Error loading agents:', error);
+        displayError('Network error while loading agents');
+    }
+}
+
+function displayAgents() {
+    const agentsTable = document.getElementById('agentsTable');
+    
+    if (agents.length === 0) {
+        agentsTable.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-robot fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No agents registered yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Categories</th>
+                        <th>Status</th>
+                        <th>Load</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    agents.forEach(agent => {
+        const statusBadge = agent.is_healthy ? 
+            '<span class="badge bg-success">Healthy</span>' : 
+            '<span class="badge bg-danger">Unhealthy</span>';
+        
+        const loadPercentage = (agent.load_factor * 100).toFixed(0);
+        const loadColor = loadPercentage > 80 ? 'danger' : loadPercentage > 60 ? 'warning' : 'success';
+        
+        html += `
+            <tr>
+                <td>
+                    <strong>${agent.name}</strong>
+                    <br><small class="text-muted">${agent.id}</small>
+                </td>
+                <td>${agent.description}</td>
+                <td>
+                    ${agent.categories.map(cat => `<span class="badge bg-secondary me-1">${cat}</span>`).join('')}
+                </td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-${loadColor}" role="progressbar" 
+                             style="width: ${loadPercentage}%" 
+                             aria-valuenow="${loadPercentage}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100"></div>
+                    </div>
+                    <small class="text-muted">${loadPercentage}%</small>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger" onclick="unregisterAgent('${agent.id}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    agentsTable.innerHTML = html;
+}
+
+function displayError(message) {
+    const agentsTable = document.getElementById('agentsTable');
+    agentsTable.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${message}
+        </div>
+    `;
+}
+
+async function registerAgent() {
+    const form = document.getElementById('registerAgentForm');
+    const formData = new FormData(form);
+    
+    // Get selected categories
+    const categories = [];
+    document.querySelectorAll('#registerAgentModal input[type="checkbox"]:checked').forEach(checkbox => {
+        categories.push(checkbox.value);
+    });
+    
+    if (categories.length === 0) {
+        alert('Please select at least one category');
+        return;
+    }
+    
+    const agentData = {
+        name: formData.get('name'),
+        description: formData.get('description'),
+        endpoint: formData.get('endpoint'),
+        categories: categories
+    };
+    
+    try {
+        const response = await fetch('/api/agents/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(agentData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Close modal and refresh agents list
+            const modal = bootstrap.Modal.getInstance(document.getElementById('registerAgentModal'));
+            modal.hide();
+            form.reset();
+            loadAgents();
+            
+            // Show success message
+            showNotification('Agent registered successfully', 'success');
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error registering agent:', error);
+        alert('Network error occurred');
+    }
+}
+
+async function unregisterAgent(agentId) {
+    if (!confirm('Are you sure you want to unregister this agent?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/agents/${agentId}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            loadAgents();
+            showNotification('Agent unregistered successfully', 'success');
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error unregistering agent:', error);
+        alert('Network error occurred');
+    }
+}
+
+function showNotification(message, type) {
+    // Create and show a toast notification
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Create toast container if it doesn't exist
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toast = new bootstrap.Toast(toastContainer.lastElementChild);
+    toast.show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,113 @@
+# ML Query Router
+
+## Overview
+
+This is a Flask-based ML-enhanced query routing system that intelligently routes user queries to appropriate AI agents based on query classification and analysis. The system uses machine learning models (DistilBERT) for query categorization and maintains a registry of specialized agents to handle different types of queries.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: Flask with Jinja2 templates
+- **UI Components**: Bootstrap 5 with dark theme, Font Awesome icons
+- **JavaScript**: Vanilla JavaScript for dynamic interactions
+- **Pages**: Home (query submission), Dashboard (metrics), Agents (management)
+
+### Backend Architecture
+- **Framework**: Flask with SQLAlchemy ORM
+- **Database**: SQLite (default) with PostgreSQL support via DATABASE_URL
+- **ML Integration**: DistilBERT for query classification, SentenceTransformers for semantic analysis
+- **Caching**: Redis support for distributed caching
+- **Rate Limiting**: Flask-Limiter for API protection
+
+### Data Storage
+- **Primary Database**: SQLite/PostgreSQL via SQLAlchemy
+- **Models**: QueryLog, AgentRegistration, RouterMetrics
+- **Caching Layer**: Redis (optional) for performance optimization
+
+## Key Components
+
+### 1. Query Classification System
+- **ML Model**: DistilBERT-based classification
+- **Categories**: Analysis, Creative, Technical, Mathematical, Coding, Research, Philosophical, Practical, Educational, Conversational
+- **Confidence Thresholds**: Configurable routing confidence levels
+
+### 2. Agent Management
+- **Registration**: Dynamic agent registration with capabilities
+- **Load Balancing**: Concurrent query limits and load penalties
+- **Health Monitoring**: Agent availability and performance tracking
+
+### 3. Routing Engine
+- **Smart Routing**: ML-enhanced routing with fallback mechanisms
+- **Consensus Algorithm**: Multi-agent consensus for complex queries
+- **Retry Logic**: Exponential backoff for failed requests
+
+### 4. Monitoring and Metrics
+- **Query Logging**: Complete audit trail of all queries
+- **Performance Metrics**: Response times, success rates, agent utilization
+- **Real-time Dashboard**: Live statistics and system health
+
+## Data Flow
+
+1. **Query Submission**: User submits query through web interface
+2. **Classification**: ML model analyzes query and determines category
+3. **Agent Selection**: Router selects appropriate agent(s) based on classification
+4. **Load Balancing**: System considers agent load and availability
+5. **Query Routing**: Request forwarded to selected agent
+6. **Response Processing**: Agent response validated and returned
+7. **Logging**: Complete interaction logged for analytics
+
+## External Dependencies
+
+### Required Libraries
+- Flask ecosystem (Flask, SQLAlchemy, Limiter)
+- ML libraries (transformers, sentence-transformers, torch)
+- Database drivers (sqlite3, psycopg2 for PostgreSQL)
+- Redis client (optional, for caching)
+
+### Optional Integrations
+- **Redis**: Distributed caching and session storage
+- **Prometheus**: Metrics collection and monitoring
+- **JWT**: Authentication and authorization
+
+### Model Dependencies
+- DistilBERT models for text classification
+- SentenceTransformers for semantic similarity
+- Local model storage in ./models/ directory
+
+## Deployment Strategy
+
+### Development Environment
+- SQLite database for local development
+- Debug mode enabled
+- Hot reloading for development
+
+### Production Considerations
+- PostgreSQL database recommended
+- Redis for distributed caching
+- Rate limiting and security headers
+- Environment-based configuration
+- Containerization ready (Docker/Kubernetes)
+
+### Configuration Management
+- Environment variables for sensitive data
+- Configurable thresholds and limits
+- Feature flags for optional components
+- Separate configs for dev/staging/prod
+
+### Scalability Features
+- Async operation support
+- Connection pooling
+- Distributed caching
+- Load balancing across agents
+- Horizontal scaling capability
+
+### Security Measures
+- Rate limiting on API endpoints
+- Input validation and sanitization
+- Secure session management
+- CSRF protection
+- Proxy-aware deployment (ProxyFix)
