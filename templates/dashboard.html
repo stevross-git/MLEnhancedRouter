@@ -13,55 +13,131 @@
     </div>
 </div>
 
+<!-- Main Metrics Row -->
 <div class="row mb-4">
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">
+                <h6 class="card-title">
                     <i class="fas fa-paper-plane text-primary me-2"></i>
                     Total Queries
-                </h5>
-                <h3 id="totalQueries">0</h3>
+                </h6>
+                <h4 id="totalQueries">0</h4>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">
+                <h6 class="card-title">
                     <i class="fas fa-check-circle text-success me-2"></i>
                     Success Rate
-                </h5>
-                <h3 id="successRate">0%</h3>
+                </h6>
+                <h4 id="successRate">0%</h4>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">
+                <h6 class="card-title">
                     <i class="fas fa-robot text-info me-2"></i>
                     Active Agents
-                </h5>
-                <h3 id="activeAgents">0</h3>
+                </h6>
+                <h4 id="activeAgents">0</h4>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">
+                <h6 class="card-title">
                     <i class="fas fa-clock text-warning me-2"></i>
                     Avg Response
-                </h5>
-                <h3 id="avgResponse">0ms</h3>
+                </h6>
+                <h4 id="avgResponse">0ms</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-users text-purple me-2"></i>
+                    Collaborative Sessions
+                </h6>
+                <h4 id="collaborativeSessions">0</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-brain text-danger me-2"></i>
+                    External LLM Calls
+                </h6>
+                <h4 id="externalLLMCalls">0</h4>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Cache and RAG Metrics Row -->
 <div class="row mb-4">
-    <div class="col-md-6">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-database text-success me-2"></i>
+                    Cache Hit Rate
+                </h6>
+                <h4 id="cacheHitRate">0%</h4>
+                <small class="text-muted">Cache efficiency</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-file-text text-info me-2"></i>
+                    RAG Documents
+                </h6>
+                <h4 id="ragDocuments">0</h4>
+                <small class="text-muted">Knowledge base</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-memory text-warning me-2"></i>
+                    Memory Usage
+                </h6>
+                <h4 id="memoryUsage">0 MB</h4>
+                <small class="text-muted">Shared memory</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-coins text-primary me-2"></i>
+                    API Costs
+                </h6>
+                <h4 id="apiCosts">$0.00</h4>
+                <small class="text-muted">Today's spend</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-4">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
@@ -71,6 +147,87 @@
             </div>
             <div class="card-body">
                 <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-brain me-2"></i>
+                    External LLM Providers
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="externalLLMChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Collaborative Agents
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="collaborativeChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- External LLM Metrics Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-brain me-2"></i>
+                    External LLM Provider Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="externalLLMProviders">
+                    <!-- External LLM providers will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Collaborative AI Status Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Collaborative AI Agent Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="collaborativeAgents">
+                    <!-- Collaborative agents will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Response Time and Performance Charts -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Response Time Trends
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="responseTimeChart"></canvas>
             </div>
         </div>
     </div>
@@ -84,6 +241,38 @@
             </div>
             <div class="card-body">
                 <canvas id="cacheChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentActivity">
+                            <!-- Recent activity will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
