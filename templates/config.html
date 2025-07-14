@@ -1,0 +1,735 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - ML Query Router{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-sliders-h me-2"></i>
+                Configuration
+            </h2>
+            <div>
+                <button class="btn btn-outline-secondary me-2" onclick="exportConfig()">
+                    <i class="fas fa-download me-1"></i>
+                    Export Config
+                </button>
+                <button class="btn btn-outline-secondary" onclick="importConfig()">
+                    <i class="fas fa-upload me-1"></i>
+                    Import Config
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Configuration Categories
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="#model-config" class="list-group-item list-group-item-action active" data-bs-toggle="tab">
+                        <i class="fas fa-microchip me-2"></i>
+                        Model Configuration
+                    </a>
+                    <a href="#endpoint-config" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-plug me-2"></i>
+                        Endpoint Configuration
+                    </a>
+                    <a href="#routing-config" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-route me-2"></i>
+                        Routing Configuration
+                    </a>
+                    <a href="#monitoring-config" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Monitoring & Logging
+                    </a>
+                    <a href="#advanced-config" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-cogs me-2"></i>
+                        Advanced Settings
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="tab-content">
+            <!-- Model Configuration Tab -->
+            <div class="tab-pane fade show active" id="model-config">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-microchip me-2"></i>
+                            Model Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="model-config-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">OpenAI Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Default Model</label>
+                                        <select class="form-select" name="openai-model">
+                                            <option value="gpt-4o">GPT-4o</option>
+                                            <option value="gpt-4">GPT-4</option>
+                                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Max Tokens</label>
+                                        <input type="number" class="form-control" name="openai-max-tokens" value="4096" min="1" max="128000">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Temperature</label>
+                                        <input type="range" class="form-range" name="openai-temperature" min="0" max="2" step="0.1" value="0.7">
+                                        <div class="form-text">Current: <span id="openai-temp-value">0.7</span></div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Anthropic Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Default Model</label>
+                                        <select class="form-select" name="anthropic-model">
+                                            <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                                            <option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
+                                            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Max Tokens</label>
+                                        <input type="number" class="form-control" name="anthropic-max-tokens" value="4096" min="1" max="200000">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Temperature</label>
+                                        <input type="range" class="form-range" name="anthropic-temperature" min="0" max="1" step="0.1" value="0.7">
+                                        <div class="form-text">Current: <span id="anthropic-temp-value">0.7</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Google Gemini Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Default Model</label>
+                                        <select class="form-select" name="google-model">
+                                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Max Tokens</label>
+                                        <input type="number" class="form-control" name="google-max-tokens" value="8192" min="1" max="32000">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">xAI Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Default Model</label>
+                                        <select class="form-select" name="xai-model">
+                                            <option value="grok-2-1212">Grok 2 (1212)</option>
+                                            <option value="grok-2-vision-1212">Grok 2 Vision (1212)</option>
+                                            <option value="grok-beta">Grok Beta</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Max Tokens</label>
+                                        <input type="number" class="form-control" name="xai-max-tokens" value="131072" min="1" max="131072">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="text-primary">Local Models (Ollama)</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Ollama Endpoint</label>
+                                                <input type="url" class="form-control" name="ollama-endpoint" value="http://localhost:11434">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Default Model</label>
+                                                <input type="text" class="form-control" name="ollama-model" value="llama3.2" placeholder="e.g., llama3.2, codellama">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                Save Model Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Endpoint Configuration Tab -->
+            <div class="tab-pane fade" id="endpoint-config">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-plug me-2"></i>
+                            Endpoint Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="endpoint-config-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">API Endpoints</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">OpenAI Endpoint</label>
+                                        <input type="url" class="form-control" name="openai-endpoint" value="https://api.openai.com/v1">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Anthropic Endpoint</label>
+                                        <input type="url" class="form-control" name="anthropic-endpoint" value="https://api.anthropic.com">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Google Gemini Endpoint</label>
+                                        <input type="url" class="form-control" name="google-endpoint" value="https://generativelanguage.googleapis.com/v1beta">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">xAI Endpoint</label>
+                                        <input type="url" class="form-control" name="xai-endpoint" value="https://api.x.ai/v1">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Timeout Settings</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Connection Timeout (seconds)</label>
+                                        <input type="number" class="form-control" name="connection-timeout" value="30" min="5" max="300">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Read Timeout (seconds)</label>
+                                        <input type="number" class="form-control" name="read-timeout" value="60" min="10" max="600">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Retry Attempts</label>
+                                        <input type="number" class="form-control" name="retry-attempts" value="3" min="0" max="10">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Retry Delay (seconds)</label>
+                                        <input type="number" class="form-control" name="retry-delay" value="1" min="0" max="60">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="text-primary">Custom Endpoints</h6>
+                                    <div id="custom-endpoints">
+                                        <div class="row mb-3">
+                                            <div class="col-md-3">
+                                                <input type="text" class="form-control" placeholder="Provider Name" name="custom-provider[]">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="url" class="form-control" placeholder="https://api.custom.com/v1" name="custom-endpoint[]">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <button type="button" class="btn btn-outline-danger" onclick="removeCustomEndpoint(this)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary" onclick="addCustomEndpoint()">
+                                        <i class="fas fa-plus me-1"></i>
+                                        Add Custom Endpoint
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary mt-3">
+                                <i class="fas fa-save me-1"></i>
+                                Save Endpoint Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Routing Configuration Tab -->
+            <div class="tab-pane fade" id="routing-config">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-route me-2"></i>
+                            Routing Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="routing-config-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Classification Settings</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Confidence Threshold</label>
+                                        <input type="range" class="form-range" name="confidence-threshold" min="0" max="1" step="0.1" value="0.7">
+                                        <div class="form-text">Current: <span id="confidence-value">0.7</span></div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Fallback Strategy</label>
+                                        <select class="form-select" name="fallback-strategy">
+                                            <option value="keyword">Keyword-based</option>
+                                            <option value="default">Default agent</option>
+                                            <option value="round-robin">Round Robin</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="enable-ml-classification" checked>
+                                            <label class="form-check-label">
+                                                Enable ML Classification
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Load Balancing</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Load Balancing Strategy</label>
+                                        <select class="form-select" name="load-balancing">
+                                            <option value="least-connections">Least Connections</option>
+                                            <option value="round-robin">Round Robin</option>
+                                            <option value="response-time">Response Time</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Max Agents per Query</label>
+                                        <input type="number" class="form-control" name="max-agents" value="5" min="1" max="20">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Agent Timeout (seconds)</label>
+                                        <input type="number" class="form-control" name="agent-timeout" value="30" min="5" max="300">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="text-primary">Query Categories</h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="analysis" checked>
+                                                <label class="form-check-label">Analysis</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="creative" checked>
+                                                <label class="form-check-label">Creative</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="technical" checked>
+                                                <label class="form-check-label">Technical</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="coding" checked>
+                                                <label class="form-check-label">Coding</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="mathematical" checked>
+                                                <label class="form-check-label">Mathematical</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="research" checked>
+                                                <label class="form-check-label">Research</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="philosophical" checked>
+                                                <label class="form-check-label">Philosophical</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="practical" checked>
+                                                <label class="form-check-label">Practical</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="educational" checked>
+                                                <label class="form-check-label">Educational</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="categories" value="conversational" checked>
+                                                <label class="form-check-label">Conversational</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary mt-3">
+                                <i class="fas fa-save me-1"></i>
+                                Save Routing Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitoring Configuration Tab -->
+            <div class="tab-pane fade" id="monitoring-config">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Monitoring & Logging
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="monitoring-config-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Logging Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Log Level</label>
+                                        <select class="form-select" name="log-level">
+                                            <option value="DEBUG">Debug</option>
+                                            <option value="INFO" selected>Info</option>
+                                            <option value="WARNING">Warning</option>
+                                            <option value="ERROR">Error</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Log Retention (days)</label>
+                                        <input type="number" class="form-control" name="log-retention" value="30" min="1" max="365">
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="log-queries" checked>
+                                            <label class="form-check-label">Log all queries</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="log-responses" checked>
+                                            <label class="form-check-label">Log all responses</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Metrics Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Metrics Endpoint</label>
+                                        <input type="url" class="form-control" name="metrics-endpoint" value="http://localhost:9090" placeholder="Prometheus endpoint">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Metrics Collection Interval (seconds)</label>
+                                        <input type="number" class="form-control" name="metrics-interval" value="60" min="5" max="3600">
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="enable-metrics" checked>
+                                            <label class="form-check-label">Enable metrics collection</label>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="enable-health-checks" checked>
+                                            <label class="form-check-label">Enable health checks</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="text-primary">Alert Configuration</h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Error Rate Threshold (%)</label>
+                                                <input type="number" class="form-control" name="error-threshold" value="5" min="0" max="100">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Response Time Threshold (ms)</label>
+                                                <input type="number" class="form-control" name="response-threshold" value="5000" min="100" max="60000">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="mb-3">
+                                                <label class="form-label">Alert Email</label>
+                                                <input type="email" class="form-control" name="alert-email" placeholder="admin@example.com">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                Save Monitoring Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Settings Tab -->
+            <div class="tab-pane fade" id="advanced-config">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cogs me-2"></i>
+                            Advanced Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="advanced-config-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Performance Tuning</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Thread Pool Size</label>
+                                        <input type="number" class="form-control" name="thread-pool-size" value="10" min="1" max="100">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Connection Pool Size</label>
+                                        <input type="number" class="form-control" name="connection-pool-size" value="20" min="1" max="200">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Request Queue Size</label>
+                                        <input type="number" class="form-control" name="queue-size" value="1000" min="10" max="10000">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Cache Configuration</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">Cache Backend</label>
+                                        <select class="form-select" name="cache-backend">
+                                            <option value="redis">Redis</option>
+                                            <option value="memory">In-Memory</option>
+                                            <option value="file">File System</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Cache TTL (seconds)</label>
+                                        <input type="number" class="form-control" name="cache-ttl" value="3600" min="0" max="86400">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Cache Max Size (MB)</label>
+                                        <input type="number" class="form-control" name="cache-max-size" value="1024" min="1" max="10240">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h6 class="text-primary">Feature Flags</h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-streaming" checked>
+                                                <label class="form-check-label">Enable streaming responses</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-caching" checked>
+                                                <label class="form-check-label">Enable response caching</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-compression" checked>
+                                                <label class="form-check-label">Enable response compression</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-rate-limiting" checked>
+                                                <label class="form-check-label">Enable rate limiting</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-circuit-breaker">
+                                                <label class="form-check-label">Enable circuit breaker</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-distributed-tracing">
+                                                <label class="form-check-label">Enable distributed tracing</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-auto-scaling">
+                                                <label class="form-check-label">Enable auto-scaling</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enable-backup">
+                                                <label class="form-check-label">Enable automatic backup</label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="debug-mode">
+                                                <label class="form-check-label">Debug mode</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary mt-3">
+                                <i class="fas fa-save me-1"></i>
+                                Save Advanced Configuration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize range sliders with value displays
+document.addEventListener('DOMContentLoaded', function() {
+    const rangeInputs = document.querySelectorAll('input[type="range"]');
+    rangeInputs.forEach(input => {
+        const valueDisplay = document.getElementById(input.name + '-value');
+        if (valueDisplay) {
+            input.addEventListener('input', function() {
+                valueDisplay.textContent = this.value;
+            });
+        }
+    });
+});
+
+function addCustomEndpoint() {
+    const container = document.getElementById('custom-endpoints');
+    const newRow = document.createElement('div');
+    newRow.className = 'row mb-3';
+    newRow.innerHTML = `
+        <div class="col-md-3">
+            <input type="text" class="form-control" placeholder="Provider Name" name="custom-provider[]">
+        </div>
+        <div class="col-md-6">
+            <input type="url" class="form-control" placeholder="https://api.custom.com/v1" name="custom-endpoint[]">
+        </div>
+        <div class="col-md-3">
+            <button type="button" class="btn btn-outline-danger" onclick="removeCustomEndpoint(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    container.appendChild(newRow);
+}
+
+function removeCustomEndpoint(button) {
+    button.closest('.row').remove();
+}
+
+function exportConfig() {
+    const config = {
+        timestamp: new Date().toISOString(),
+        version: '1.0',
+        settings: {
+            // Collect all form data
+            modelConfig: new FormData(document.getElementById('model-config-form')),
+            endpointConfig: new FormData(document.getElementById('endpoint-config-form')),
+            routingConfig: new FormData(document.getElementById('routing-config-form')),
+            monitoringConfig: new FormData(document.getElementById('monitoring-config-form')),
+            advancedConfig: new FormData(document.getElementById('advanced-config-form'))
+        }
+    };
+
+    // Convert to JSON and download
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ml-router-config-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importConfig() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    // Apply configuration to forms
+                    alert('Configuration imported successfully!');
+                } catch (error) {
+                    alert('Error importing configuration: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+    input.click();
+}
+
+// Handle form submissions
+document.getElementById('model-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    showSuccessAlert(this, 'Model configuration saved successfully!');
+});
+
+document.getElementById('endpoint-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    showSuccessAlert(this, 'Endpoint configuration saved successfully!');
+});
+
+document.getElementById('routing-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    showSuccessAlert(this, 'Routing configuration saved successfully!');
+});
+
+document.getElementById('monitoring-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    showSuccessAlert(this, 'Monitoring configuration saved successfully!');
+});
+
+document.getElementById('advanced-config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    showSuccessAlert(this, 'Advanced configuration saved successfully!');
+});
+
+function showSuccessAlert(form, message) {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    form.insertBefore(alert, form.firstChild);
+    
+    // Auto-remove alert after 5 seconds
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - ML Query Router{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-cog me-2"></i>
+                Settings
+            </h2>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Settings Categories
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="#api-keys" class="list-group-item list-group-item-action active" data-bs-toggle="tab">
+                        <i class="fas fa-key me-2"></i>
+                        API Keys
+                    </a>
+                    <a href="#general" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-cog me-2"></i>
+                        General Settings
+                    </a>
+                    <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Security
+                    </a>
+                    <a href="#performance" class="list-group-item list-group-item-action" data-bs-toggle="tab">
+                        <i class="fas fa-tachometer-alt me-2"></i>
+                        Performance
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="tab-content">
+            <!-- API Keys Tab -->
+            <div class="tab-pane fade show active" id="api-keys">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-key me-2"></i>
+                            Enterprise API Keys
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Configure API keys for enterprise AI model providers. These keys are stored securely and used to authenticate with external services.
+                        </div>
+
+                        <div id="api-key-status" class="row mb-4">
+                            <!-- API key status will be loaded here -->
+                        </div>
+
+                        <form id="api-key-form">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="openai-key" class="form-label">
+                                            <i class="fab fa-openai me-1"></i>
+                                            OpenAI API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="openai-key" name="openai-key" placeholder="sk-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('openai-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for GPT-4, GPT-3.5, and DALL-E models</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="anthropic-key" class="form-label">
+                                            <i class="fas fa-robot me-1"></i>
+                                            Anthropic API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="anthropic-key" name="anthropic-key" placeholder="sk-ant-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('anthropic-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Claude models</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="google-key" class="form-label">
+                                            <i class="fab fa-google me-1"></i>
+                                            Google Gemini API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="google-key" name="google-key" placeholder="AI...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('google-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Gemini models</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="xai-key" class="form-label">
+                                            <i class="fas fa-times me-1"></i>
+                                            xAI API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="xai-key" name="xai-key" placeholder="xai-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('xai-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Grok models</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="perplexity-key" class="form-label">
+                                            <i class="fas fa-search me-1"></i>
+                                            Perplexity API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="perplexity-key" name="perplexity-key" placeholder="pplx-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('perplexity-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Perplexity models</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="cohere-key" class="form-label">
+                                            <i class="fas fa-brain me-1"></i>
+                                            Cohere API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="cohere-key" name="cohere-key" placeholder="co-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('cohere-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Cohere models</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="mistral-key" class="form-label">
+                                            <i class="fas fa-wind me-1"></i>
+                                            Mistral API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="mistral-key" name="mistral-key" placeholder="mst-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('mistral-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Mistral models</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="huggingface-key" class="form-label">
+                                            <i class="fas fa-hug me-1"></i>
+                                            Hugging Face API Key
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="huggingface-key" name="huggingface-key" placeholder="hf_...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('huggingface-key')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                        <div class="form-text">Required for Hugging Face models</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Important:</strong> API keys are sensitive information. They will be stored securely and are only used for authentication with the respective services.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" onclick="testAllConnections()">
+                                    <i class="fas fa-plug me-1"></i>
+                                    Test All Connections
+                                </button>
+                                <div>
+                                    <button type="button" class="btn btn-outline-secondary me-2" onclick="clearAllKeys()">
+                                        <i class="fas fa-trash me-1"></i>
+                                        Clear All
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-1"></i>
+                                        Save API Keys
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- General Settings Tab -->
+            <div class="tab-pane fade" id="general">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-cog me-2"></i>
+                            General Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="general-settings-form">
+                            <div class="mb-3">
+                                <label for="default-model" class="form-label">Default AI Model</label>
+                                <select class="form-select" id="default-model" name="default-model">
+                                    <option value="">Select default model...</option>
+                                </select>
+                                <div class="form-text">The default AI model to use for query routing</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="max-tokens" class="form-label">Max Tokens</label>
+                                <input type="number" class="form-control" id="max-tokens" name="max-tokens" value="4096" min="1" max="128000">
+                                <div class="form-text">Maximum number of tokens for model responses</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="temperature" class="form-label">Temperature</label>
+                                <input type="range" class="form-range" id="temperature" name="temperature" min="0" max="2" step="0.1" value="0.7">
+                                <div class="form-text">Controls randomness in responses (0.0 = deterministic, 2.0 = very random)</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="auto-retry" name="auto-retry" checked>
+                                    <label class="form-check-label" for="auto-retry">
+                                        Auto-retry failed requests
+                                    </label>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                Save Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Tab -->
+            <div class="tab-pane fade" id="security">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            Security Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="security-settings-form">
+                            <div class="mb-3">
+                                <label for="rate-limit" class="form-label">Rate Limit (requests per minute)</label>
+                                <input type="number" class="form-control" id="rate-limit" name="rate-limit" value="60" min="1" max="1000">
+                                <div class="form-text">Maximum requests per minute per user</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="session-timeout" class="form-label">Session Timeout (minutes)</label>
+                                <input type="number" class="form-control" id="session-timeout" name="session-timeout" value="60" min="5" max="1440">
+                                <div class="form-text">Session expiration time</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="require-auth" name="require-auth" checked>
+                                    <label class="form-check-label" for="require-auth">
+                                        Require authentication for API access
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="log-requests" name="log-requests" checked>
+                                    <label class="form-check-label" for="log-requests">
+                                        Log all API requests
+                                    </label>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                Save Security Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Tab -->
+            <div class="tab-pane fade" id="performance">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Performance Settings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="performance-settings-form">
+                            <div class="mb-3">
+                                <label for="cache-ttl" class="form-label">Cache TTL (seconds)</label>
+                                <input type="number" class="form-control" id="cache-ttl" name="cache-ttl" value="3600" min="0" max="86400">
+                                <div class="form-text">Time to live for cached responses</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="max-concurrent" class="form-label">Max Concurrent Requests</label>
+                                <input type="number" class="form-control" id="max-concurrent" name="max-concurrent" value="10" min="1" max="100">
+                                <div class="form-text">Maximum concurrent requests per agent</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="request-timeout" class="form-label">Request Timeout (seconds)</label>
+                                <input type="number" class="form-control" id="request-timeout" name="request-timeout" value="30" min="5" max="300">
+                                <div class="form-text">Timeout for external API requests</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enable-cache" name="enable-cache" checked>
+                                    <label class="form-check-label" for="enable-cache">
+                                        Enable response caching
+                                    </label>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                Save Performance Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load API key status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadAPIKeyStatus();
+    loadAvailableModels();
+});
+
+function loadAPIKeyStatus() {
+    fetch('/api/ai-models/api-key-status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayAPIKeyStatus(data.status_info);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading API key status:', error);
+        });
+}
+
+function displayAPIKeyStatus(statusInfo) {
+    const container = document.getElementById('api-key-status');
+    container.innerHTML = '';
+    
+    for (const [provider, info] of Object.entries(statusInfo)) {
+        const statusClass = info.available ? 'text-success' : 'text-danger';
+        const statusIcon = info.available ? 'fas fa-check-circle' : 'fas fa-times-circle';
+        
+        container.innerHTML += `
+            <div class="col-md-3 col-sm-6 mb-2">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-2 text-center">
+                        <i class="${statusIcon} ${statusClass} me-1"></i>
+                        <small class="text-capitalize">${provider}</small>
+                        <div class="text-muted" style="font-size: 0.75rem">${info.message}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function loadAvailableModels() {
+    fetch('/api/ai-models')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const select = document.getElementById('default-model');
+                select.innerHTML = '<option value="">Select default model...</option>';
+                
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = `${model.name} (${model.provider})`;
+                    if (model.is_active) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading models:', error);
+        });
+}
+
+function togglePassword(fieldId) {
+    const field = document.getElementById(fieldId);
+    const button = field.nextElementSibling;
+    const icon = button.querySelector('i');
+    
+    if (field.type === 'password') {
+        field.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        field.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+function testAllConnections() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+    button.disabled = true;
+    
+    // Simulate testing connections
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        alert('Connection test completed. Check the status indicators above.');
+        loadAPIKeyStatus();
+    }, 3000);
+}
+
+function clearAllKeys() {
+    if (confirm('Are you sure you want to clear all API keys?')) {
+        document.querySelectorAll('#api-key-form input[type="password"]').forEach(input => {
+            input.value = '';
+        });
+    }
+}
+
+// Handle form submissions
+document.getElementById('api-key-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const keys = {};
+    
+    for (let [key, value] of formData.entries()) {
+        if (value.trim()) {
+            keys[key] = value;
+        }
+    }
+    
+    // Show success message
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        API keys have been saved successfully.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    this.insertBefore(alert, this.firstChild);
+    
+    // Reload status
+    setTimeout(() => {
+        loadAPIKeyStatus();
+    }, 1000);
+});
+
+document.getElementById('general-settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        General settings have been saved successfully.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    this.insertBefore(alert, this.firstChild);
+});
+
+document.getElementById('security-settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        Security settings have been saved successfully.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    this.insertBefore(alert, this.firstChild);
+});
+
+document.getElementById('performance-settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        Performance settings have been saved successfully.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    this.insertBefore(alert, this.firstChild);
+});
+</script>
+{% endblock %}

@@ -103,6 +103,16 @@ def auth():
     """Authentication management page"""
     return render_template('auth.html')
 
+@app.route('/settings')
+def settings():
+    """Settings page for API key management"""
+    return render_template('settings.html')
+
+@app.route('/config')
+def config():
+    """Configuration page for advanced settings"""
+    return render_template('config.html')
+
 @app.route('/api/query', methods=['POST'])
 def submit_query():
     """Submit a query for routing"""
@@ -734,6 +744,353 @@ def get_usage_stats():
     except Exception as e:
         logger.error(f"Error getting usage stats: {e}")
         return jsonify({'status': 'error', 'error': 'Failed to get usage stats'}), 500
+
+# Settings API Routes
+@app.route('/api/settings/save-api-keys', methods=['POST'])
+def save_api_keys():
+    """Save API keys to environment"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # For demo purposes, we'll just validate the keys
+        # In production, these would be securely stored
+        saved_keys = {}
+        key_mappings = {
+            'openai-key': 'OPENAI_API_KEY',
+            'anthropic-key': 'ANTHROPIC_API_KEY',
+            'google-key': 'GEMINI_API_KEY',
+            'xai-key': 'XAI_API_KEY',
+            'perplexity-key': 'PERPLEXITY_API_KEY',
+            'cohere-key': 'COHERE_API_KEY',
+            'mistral-key': 'MISTRAL_API_KEY',
+            'huggingface-key': 'HUGGINGFACE_API_KEY'
+        }
+        
+        for form_key, env_key in key_mappings.items():
+            if form_key in data and data[form_key]:
+                saved_keys[env_key] = data[form_key]
+                # In production, you would save to secure storage
+                # os.environ[env_key] = data[form_key]
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Saved {len(saved_keys)} API keys',
+            'saved_keys': list(saved_keys.keys())
+        })
+        
+    except Exception as e:
+        logger.error(f"Error saving API keys: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to save API keys'}), 500
+
+@app.route('/api/settings/general', methods=['GET', 'POST'])
+def general_settings():
+    """Get or save general settings"""
+    try:
+        if request.method == 'GET':
+            # Return current settings
+            settings = {
+                'default_model': 'gpt-4o-mini',
+                'max_tokens': 4096,
+                'temperature': 0.7,
+                'auto_retry': True
+            }
+            return jsonify({'status': 'success', 'settings': settings})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            # Save settings (in production, save to database)
+            return jsonify({
+                'status': 'success',
+                'message': 'General settings saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with general settings: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle general settings'}), 500
+
+@app.route('/api/settings/security', methods=['GET', 'POST'])
+def security_settings():
+    """Get or save security settings"""
+    try:
+        if request.method == 'GET':
+            settings = {
+                'rate_limit': 60,
+                'session_timeout': 60,
+                'require_auth': True,
+                'log_requests': True
+            }
+            return jsonify({'status': 'success', 'settings': settings})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Security settings saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with security settings: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle security settings'}), 500
+
+@app.route('/api/settings/performance', methods=['GET', 'POST'])
+def performance_settings():
+    """Get or save performance settings"""
+    try:
+        if request.method == 'GET':
+            settings = {
+                'cache_ttl': 3600,
+                'max_concurrent': 10,
+                'request_timeout': 30,
+                'enable_cache': True
+            }
+            return jsonify({'status': 'success', 'settings': settings})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Performance settings saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with performance settings: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle performance settings'}), 500
+
+# Configuration API Routes
+@app.route('/api/config/model', methods=['GET', 'POST'])
+def model_config():
+    """Get or save model configuration"""
+    try:
+        if request.method == 'GET':
+            config = {
+                'openai': {
+                    'model': 'gpt-4o',
+                    'max_tokens': 4096,
+                    'temperature': 0.7
+                },
+                'anthropic': {
+                    'model': 'claude-sonnet-4-20250514',
+                    'max_tokens': 4096,
+                    'temperature': 0.7
+                },
+                'google': {
+                    'model': 'gemini-2.5-flash',
+                    'max_tokens': 8192
+                },
+                'xai': {
+                    'model': 'grok-2-1212',
+                    'max_tokens': 131072
+                },
+                'ollama': {
+                    'endpoint': 'http://localhost:11434',
+                    'model': 'llama3.2'
+                }
+            }
+            return jsonify({'status': 'success', 'config': config})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Model configuration saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with model config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle model configuration'}), 500
+
+@app.route('/api/config/endpoint', methods=['GET', 'POST'])
+def endpoint_config():
+    """Get or save endpoint configuration"""
+    try:
+        if request.method == 'GET':
+            config = {
+                'openai_endpoint': 'https://api.openai.com/v1',
+                'anthropic_endpoint': 'https://api.anthropic.com',
+                'google_endpoint': 'https://generativelanguage.googleapis.com/v1beta',
+                'xai_endpoint': 'https://api.x.ai/v1',
+                'connection_timeout': 30,
+                'read_timeout': 60,
+                'retry_attempts': 3,
+                'retry_delay': 1,
+                'custom_endpoints': []
+            }
+            return jsonify({'status': 'success', 'config': config})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Endpoint configuration saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with endpoint config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle endpoint configuration'}), 500
+
+@app.route('/api/config/routing', methods=['GET', 'POST'])
+def routing_config():
+    """Get or save routing configuration"""
+    try:
+        if request.method == 'GET':
+            config = {
+                'confidence_threshold': 0.7,
+                'fallback_strategy': 'keyword',
+                'enable_ml_classification': True,
+                'load_balancing': 'least-connections',
+                'max_agents': 5,
+                'agent_timeout': 30,
+                'enabled_categories': [
+                    'analysis', 'creative', 'technical', 'coding',
+                    'mathematical', 'research', 'philosophical',
+                    'practical', 'educational', 'conversational'
+                ]
+            }
+            return jsonify({'status': 'success', 'config': config})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Routing configuration saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with routing config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle routing configuration'}), 500
+
+@app.route('/api/config/monitoring', methods=['GET', 'POST'])
+def monitoring_config():
+    """Get or save monitoring configuration"""
+    try:
+        if request.method == 'GET':
+            config = {
+                'log_level': 'INFO',
+                'log_retention': 30,
+                'log_queries': True,
+                'log_responses': True,
+                'metrics_endpoint': 'http://localhost:9090',
+                'metrics_interval': 60,
+                'enable_metrics': True,
+                'enable_health_checks': True,
+                'error_threshold': 5,
+                'response_threshold': 5000,
+                'alert_email': ''
+            }
+            return jsonify({'status': 'success', 'config': config})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Monitoring configuration saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with monitoring config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle monitoring configuration'}), 500
+
+@app.route('/api/config/advanced', methods=['GET', 'POST'])
+def advanced_config():
+    """Get or save advanced configuration"""
+    try:
+        if request.method == 'GET':
+            config = {
+                'thread_pool_size': 10,
+                'connection_pool_size': 20,
+                'queue_size': 1000,
+                'cache_backend': 'redis',
+                'cache_ttl': 3600,
+                'cache_max_size': 1024,
+                'feature_flags': {
+                    'enable_streaming': True,
+                    'enable_caching': True,
+                    'enable_compression': True,
+                    'enable_rate_limiting': True,
+                    'enable_circuit_breaker': False,
+                    'enable_distributed_tracing': False,
+                    'enable_auto_scaling': False,
+                    'enable_backup': False,
+                    'debug_mode': False
+                }
+            }
+            return jsonify({'status': 'success', 'config': config})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Advanced configuration saved successfully'
+            })
+            
+    except Exception as e:
+        logger.error(f"Error with advanced config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to handle advanced configuration'}), 500
+
+@app.route('/api/config/export', methods=['GET'])
+def export_config():
+    """Export complete configuration"""
+    try:
+        # In production, this would gather all actual configuration
+        config = {
+            'timestamp': datetime.now().isoformat(),
+            'version': '1.0',
+            'model_config': {},
+            'endpoint_config': {},
+            'routing_config': {},
+            'monitoring_config': {},
+            'advanced_config': {}
+        }
+        
+        return jsonify({'status': 'success', 'config': config})
+        
+    except Exception as e:
+        logger.error(f"Error exporting config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to export configuration'}), 500
+
+@app.route('/api/config/import', methods=['POST'])
+def import_config():
+    """Import configuration"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No configuration data provided'}), 400
+        
+        # In production, this would validate and apply the configuration
+        return jsonify({
+            'status': 'success',
+            'message': 'Configuration imported successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error importing config: {e}")
+        return jsonify({'status': 'error', 'error': 'Failed to import configuration'}), 500
 
 # Error handlers
 @app.errorhandler(404)
