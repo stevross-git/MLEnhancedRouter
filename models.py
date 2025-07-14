@@ -112,3 +112,40 @@ class AICacheStats(db.Model):
         if self.total_requests == 0:
             return 0.0
         return (self.cache_misses / self.total_requests) * 100
+
+class ChatSession(db.Model):
+    """Chat session model for storing conversation history"""
+    __tablename__ = 'chat_sessions'
+    
+    id = Column(String(100), primary_key=True)
+    user_id = Column(String(100), nullable=False, default='anonymous')
+    title = Column(String(200), nullable=False)
+    model_id = Column(String(100), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    message_count = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    
+    # Relationship to messages
+    messages = db.relationship('ChatMessage', backref='session', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<ChatSession {self.id}: {self.title}>'
+
+class ChatMessage(db.Model):
+    """Chat message model for storing individual messages"""
+    __tablename__ = 'chat_messages'
+    
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(100), db.ForeignKey('chat_sessions.id'), nullable=False)
+    role = Column(String(20), nullable=False)  # 'user', 'assistant', 'system'
+    content = Column(Text, nullable=False)
+    model_id = Column(String(100), nullable=True)
+    system_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    usage_tokens = Column(Integer, default=0)
+    cached = Column(Boolean, default=False)
+    attachments = Column(JSON, nullable=True)
+    
+    def __repr__(self):
+        return f'<ChatMessage {self.id}: {self.role} - {self.content[:50]}...>'

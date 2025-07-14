@@ -1,6 +1,10 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+import time
+import json
+import asyncio
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, Response
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
@@ -100,6 +104,11 @@ def models():
 def ai_models():
     """AI model management page"""
     return render_template('ai_models.html')
+
+@app.route('/chat')
+def chat():
+    """Advanced chat interface"""
+    return render_template('chat.html')
 
 @app.route('/auth')
 def auth():
@@ -1148,6 +1157,136 @@ def clear_cache():
         
         cache_manager.clear(model_id=model_id)
         return jsonify({'status': 'success', 'message': 'Cache cleared successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Chat API Endpoints
+@app.route('/api/chat/message', methods=['POST'])
+def chat_message():
+    """Send message to AI model"""
+    try:
+        data = request.get_json()
+        query = data.get('query', '')
+        system_message = data.get('system_message')
+        model_id = data.get('model_id')
+        temperature = data.get('temperature', 0.7)
+        max_tokens = data.get('max_tokens', 4096)
+        
+        if not query:
+            return jsonify({'error': 'Query is required'}), 400
+        
+        if not model_id:
+            return jsonify({'error': 'Model ID is required'}), 400
+        
+        if not ai_model_manager:
+            return jsonify({'error': 'AI model manager not initialized'}), 500
+        
+        # Generate response using AI model manager
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            response = loop.run_until_complete(
+                ai_model_manager.generate_response(
+                    query=query,
+                    system_message=system_message,
+                    model_id=model_id,
+                    user_id=session.get('user_id', 'anonymous')
+                )
+            )
+            
+            return jsonify({
+                'status': 'success',
+                'response': response['response'],
+                'model': response['model'],
+                'usage': response.get('usage', {}),
+                'cached': response.get('cached', False)
+            })
+        finally:
+            loop.close()
+            
+    except Exception as e:
+        logger.error(f"Chat message error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/chat/stream')
+def chat_stream():
+    """Stream chat response using Server-Sent Events"""
+    query = request.args.get('query', '')
+    system_message = request.args.get('system_message')
+    model_id = request.args.get('model_id')
+    
+    if not query or not model_id:
+        return jsonify({'error': 'Query and model_id are required'}), 400
+    
+    def generate():
+        try:
+            yield f"data: {json.dumps({'type': 'start', 'model': model_id})}\n\n"
+            
+            # For now, simulate streaming by chunking the response
+            # In a real implementation, you'd integrate with streaming APIs
+            
+            # Get regular response first
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                response = loop.run_until_complete(
+                    ai_model_manager.generate_response(
+                        query=query,
+                        system_message=system_message,
+                        model_id=model_id,
+                        user_id=session.get('user_id', 'anonymous')
+                    )
+                )
+                
+                # Simulate streaming by sending chunks
+                full_response = response['response']
+                words = full_response.split()
+                
+                for i, word in enumerate(words):
+                    chunk = word + (' ' if i < len(words) - 1 else '')
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+                    time.sleep(0.1)  # Simulate streaming delay
+                
+                yield f"data: {json.dumps({'type': 'end', 'usage': response.get('usage', {})})}\n\n"
+                
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/api/chat/sessions', methods=['GET'])
+def get_chat_sessions():
+    """Get user's chat sessions"""
+    user_id = session.get('user_id', 'anonymous')
+    
+    # In a real implementation, you'd fetch from database
+    # For now, return empty array as sessions are stored client-side
+    return jsonify([])
+
+@app.route('/api/chat/sessions', methods=['POST'])
+def create_chat_session():
+    """Create new chat session"""
+    try:
+        data = request.get_json()
+        user_id = session.get('user_id', 'anonymous')
+        
+        # In a real implementation, you'd save to database
+        session_data = {
+            'id': f"chat_{int(time.time())}_{user_id}",
+            'title': data.get('title', 'New Chat'),
+            'model': data.get('model'),
+            'created': datetime.now().isoformat(),
+            'messages': []
+        }
+        
+        return jsonify(session_data)
+        
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

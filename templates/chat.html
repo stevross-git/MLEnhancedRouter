@@ -1,0 +1,871 @@
+{% extends "base.html" %}
+
+{% block title %}AI Chat Interface{% endblock %}
+
+{% block content %}
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <!-- Chat Sidebar -->
+        <div class="col-md-3 d-none d-md-block bg-dark text-white p-0">
+            <div class="chat-sidebar h-100 d-flex flex-column">
+                <!-- Header -->
+                <div class="p-3 border-bottom border-secondary">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments me-2"></i>
+                        AI Chat
+                    </h5>
+                </div>
+                
+                <!-- Model Selection -->
+                <div class="p-3 border-bottom border-secondary">
+                    <label class="form-label small text-muted">AI Model</label>
+                    <select class="form-select form-select-sm" id="model-select">
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                
+                <!-- Chat Sessions -->
+                <div class="flex-grow-1 overflow-auto">
+                    <div class="p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted">Chat Sessions</small>
+                            <button class="btn btn-sm btn-outline-light" onclick="newChat()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div id="chat-sessions">
+                            <!-- Chat session list will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Settings -->
+                <div class="p-3 border-top border-secondary">
+                    <div class="mb-2">
+                        <label class="form-label small text-muted">Temperature</label>
+                        <input type="range" class="form-range" min="0" max="1" step="0.1" value="0.7" id="temperature-slider">
+                        <small class="text-muted" id="temperature-value">0.7</small>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small text-muted">Max Tokens</label>
+                        <input type="number" class="form-control form-control-sm" value="4096" id="max-tokens" min="1" max="8192">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="streaming-enabled" checked>
+                        <label class="form-check-label small" for="streaming-enabled">
+                            Enable Streaming
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Chat Area -->
+        <div class="col-md-9 col-12 d-flex flex-column h-100 p-0">
+            <!-- Chat Header -->
+            <div class="chat-header bg-primary text-white p-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0" id="chat-title">New Chat</h6>
+                    <small class="opacity-75" id="chat-status">Ready</small>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-light" onclick="clearChat()" title="Clear Chat">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="exportChat()" title="Export Chat">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-light" onclick="toggleSidebar()" title="Toggle Sidebar" class="d-md-none">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Chat Messages -->
+            <div class="chat-messages flex-grow-1 overflow-auto p-3" id="chat-messages">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-robot fa-3x mb-3 opacity-50"></i>
+                    <p>Start a conversation with AI</p>
+                    <small>Select a model and type your message below</small>
+                </div>
+            </div>
+            
+            <!-- Typing Indicator -->
+            <div class="typing-indicator d-none" id="typing-indicator">
+                <div class="p-3 border-top">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar bg-primary me-2">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="typing-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <small class="text-muted ms-2">AI is typing...</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div class="chat-input border-top p-3">
+                <div class="input-group">
+                    <button class="btn btn-outline-secondary" type="button" onclick="toggleAttachments()" id="attach-button">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <textarea class="form-control" placeholder="Type your message..." id="message-input" rows="1" style="resize: none;"></textarea>
+                    <button class="btn btn-primary" type="button" onclick="sendMessage()" id="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                
+                <!-- File Upload Area -->
+                <div class="file-upload-area mt-2 d-none" id="file-upload-area">
+                    <div class="border rounded p-3 bg-light">
+                        <input type="file" class="form-control" id="file-input" multiple accept=".txt,.md,.json,.csv,.pdf,.jpg,.jpeg,.png">
+                        <small class="text-muted">Supported: Text, Images, Documents (Max 10MB each)</small>
+                    </div>
+                </div>
+                
+                <!-- System Message -->
+                <div class="system-message-area mt-2 d-none" id="system-message-area">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">System:</span>
+                        <input type="text" class="form-control" placeholder="System message (optional)" id="system-message">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleSystemMessage()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Message Templates -->
+<template id="user-message-template">
+    <div class="message user-message mb-3">
+        <div class="d-flex justify-content-end">
+            <div class="message-content bg-primary text-white rounded-3 p-3 max-width-75">
+                <div class="message-text"></div>
+                <div class="message-attachments mt-2"></div>
+                <small class="opacity-75 message-time"></small>
+            </div>
+            <div class="avatar ms-2 bg-secondary">
+                <i class="fas fa-user"></i>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="assistant-message-template">
+    <div class="message assistant-message mb-3">
+        <div class="d-flex">
+            <div class="avatar me-2 bg-primary">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content bg-light rounded-3 p-3 max-width-75">
+                <div class="message-header d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted model-name"></small>
+                    <div class="message-actions">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="copyMessage(this)" title="Copy">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="regenerateMessage(this)" title="Regenerate">
+                            <i class="fas fa-sync"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="message-text"></div>
+                <small class="text-muted message-time"></small>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="chat-session-template">
+    <div class="chat-session mb-2 p-2 rounded cursor-pointer" onclick="loadChatSession(this)">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <small class="session-title"></small>
+                <br>
+                <small class="text-muted session-preview"></small>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteChatSession(this, event)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+
+<style>
+.chat-sidebar {
+    background-color: #2d3748;
+}
+
+.chat-messages {
+    background-color: #f8f9fa;
+    max-height: calc(100vh - 200px);
+}
+
+.message {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.max-width-75 {
+    max-width: 75%;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.typing-dots {
+    display: flex;
+    align-items: center;
+}
+
+.typing-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #6c757d;
+    display: inline-block;
+    margin: 0 2px;
+    animation: typing 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.5;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.chat-session:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.chat-session.active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.message-content {
+    word-wrap: break-word;
+}
+
+.message-actions {
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+}
+
+.file-preview {
+    display: inline-block;
+    margin: 2px;
+    padding: 4px 8px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.streaming-text {
+    border-right: 2px solid #007bff;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { border-color: #007bff; }
+    51%, 100% { border-color: transparent; }
+}
+
+@media (max-width: 768px) {
+    .max-width-75 {
+        max-width: 85%;
+    }
+    
+    .chat-messages {
+        max-height: calc(100vh - 160px);
+    }
+}
+</style>
+
+<script>
+let currentChatId = null;
+let currentModel = null;
+let chatSessions = [];
+let messageHistory = [];
+let streamingController = null;
+
+// Initialize chat interface
+document.addEventListener('DOMContentLoaded', function() {
+    loadModels();
+    loadChatSessions();
+    setupEventListeners();
+    setupTemperatureSlider();
+    
+    // Auto-resize textarea
+    const messageInput = document.getElementById('message-input');
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+});
+
+function loadModels() {
+    fetch('/api/ai-models')
+        .then(response => response.json())
+        .then(data => {
+            const modelSelect = document.getElementById('model-select');
+            modelSelect.innerHTML = '<option value="">Select a model...</option>';
+            
+            data.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = `${model.name} (${model.provider})`;
+                if (model.is_active) {
+                    option.selected = true;
+                    currentModel = model.id;
+                }
+                modelSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading models:', error);
+        });
+}
+
+function setupEventListeners() {
+    // Model selection
+    document.getElementById('model-select').addEventListener('change', function() {
+        currentModel = this.value;
+        updateChatStatus();
+    });
+    
+    // Enter key to send message
+    document.getElementById('message-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // File input change
+    document.getElementById('file-input').addEventListener('change', function() {
+        displayFilePreview();
+    });
+}
+
+function setupTemperatureSlider() {
+    const slider = document.getElementById('temperature-slider');
+    const value = document.getElementById('temperature-value');
+    
+    slider.addEventListener('input', function() {
+        value.textContent = this.value;
+    });
+}
+
+function newChat() {
+    currentChatId = 'chat_' + Date.now();
+    messageHistory = [];
+    
+    // Clear chat messages
+    document.getElementById('chat-messages').innerHTML = `
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-robot fa-3x mb-3 opacity-50"></i>
+            <p>Start a conversation with AI</p>
+            <small>Select a model and type your message below</small>
+        </div>
+    `;
+    
+    // Update title
+    document.getElementById('chat-title').textContent = 'New Chat';
+    
+    // Add to sessions
+    const session = {
+        id: currentChatId,
+        title: 'New Chat',
+        messages: [],
+        created: new Date().toISOString(),
+        model: currentModel
+    };
+    
+    chatSessions.unshift(session);
+    renderChatSessions();
+    saveChatSessions();
+}
+
+function loadChatSession(element) {
+    const sessionId = element.dataset.sessionId;
+    const session = chatSessions.find(s => s.id === sessionId);
+    
+    if (session) {
+        currentChatId = sessionId;
+        messageHistory = session.messages;
+        currentModel = session.model;
+        
+        // Update model selection
+        document.getElementById('model-select').value = currentModel;
+        
+        // Update title
+        document.getElementById('chat-title').textContent = session.title;
+        
+        // Render messages
+        renderChatMessages();
+        
+        // Update active session
+        document.querySelectorAll('.chat-session').forEach(s => s.classList.remove('active'));
+        element.classList.add('active');
+    }
+}
+
+function renderChatMessages() {
+    const messagesContainer = document.getElementById('chat-messages');
+    messagesContainer.innerHTML = '';
+    
+    messageHistory.forEach(message => {
+        if (message.role === 'user') {
+            addUserMessage(message.content, message.timestamp, message.attachments);
+        } else {
+            addAssistantMessage(message.content, message.timestamp, message.model);
+        }
+    });
+    
+    scrollToBottom();
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value.trim();
+    const systemMessage = document.getElementById('system-message').value.trim();
+    const fileInput = document.getElementById('file-input');
+    
+    if (!message && fileInput.files.length === 0) return;
+    if (!currentModel) {
+        alert('Please select an AI model first');
+        return;
+    }
+    
+    // Prepare attachments
+    const attachments = [];
+    for (let file of fileInput.files) {
+        attachments.push({
+            name: file.name,
+            type: file.type,
+            size: file.size
+        });
+    }
+    
+    // Add user message
+    const timestamp = new Date().toISOString();
+    addUserMessage(message, timestamp, attachments);
+    
+    // Add to history
+    messageHistory.push({
+        role: 'user',
+        content: message,
+        timestamp: timestamp,
+        attachments: attachments
+    });
+    
+    // Clear input
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    fileInput.value = '';
+    hideFileUploadArea();
+    
+    // Show typing indicator
+    showTypingIndicator();
+    
+    // Send to API
+    sendToAPI(message, systemMessage, attachments);
+}
+
+function sendToAPI(message, systemMessage, attachments) {
+    const isStreaming = document.getElementById('streaming-enabled').checked;
+    const temperature = parseFloat(document.getElementById('temperature-slider').value);
+    const maxTokens = parseInt(document.getElementById('max-tokens').value);
+    
+    const payload = {
+        query: message,
+        system_message: systemMessage || null,
+        model_id: currentModel,
+        temperature: temperature,
+        max_tokens: maxTokens,
+        stream: isStreaming,
+        attachments: attachments
+    };
+    
+    if (isStreaming) {
+        sendStreamingRequest(payload);
+    } else {
+        sendRegularRequest(payload);
+    }
+}
+
+function sendStreamingRequest(payload) {
+    const eventSource = new EventSource('/api/chat/stream?' + new URLSearchParams(payload));
+    let responseText = '';
+    let messageElement = null;
+    
+    eventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'start') {
+            hideTypingIndicator();
+            messageElement = addAssistantMessage('', new Date().toISOString(), currentModel, true);
+        } else if (data.type === 'token') {
+            responseText += data.content;
+            updateStreamingMessage(messageElement, responseText);
+        } else if (data.type === 'end') {
+            finalizeStreamingMessage(messageElement, responseText);
+            eventSource.close();
+            
+            // Add to history
+            messageHistory.push({
+                role: 'assistant',
+                content: responseText,
+                timestamp: new Date().toISOString(),
+                model: currentModel
+            });
+            
+            updateChatSession();
+        }
+    };
+    
+    eventSource.onerror = function() {
+        hideTypingIndicator();
+        if (messageElement) {
+            finalizeStreamingMessage(messageElement, responseText || 'Error occurred while streaming response');
+        }
+        eventSource.close();
+    };
+    
+    streamingController = eventSource;
+}
+
+function sendRegularRequest(payload) {
+    fetch('/api/chat/message', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideTypingIndicator();
+        
+        if (data.status === 'success') {
+            const timestamp = new Date().toISOString();
+            addAssistantMessage(data.response, timestamp, currentModel);
+            
+            // Add to history
+            messageHistory.push({
+                role: 'assistant',
+                content: data.response,
+                timestamp: timestamp,
+                model: currentModel
+            });
+            
+            updateChatSession();
+        } else {
+            addAssistantMessage('Error: ' + data.error, new Date().toISOString(), currentModel);
+        }
+    })
+    .catch(error => {
+        hideTypingIndicator();
+        console.error('Error:', error);
+        addAssistantMessage('Error occurred while sending message', new Date().toISOString(), currentModel);
+    });
+}
+
+function addUserMessage(content, timestamp, attachments = []) {
+    const template = document.getElementById('user-message-template');
+    const messageElement = template.content.cloneNode(true);
+    
+    messageElement.querySelector('.message-text').textContent = content;
+    messageElement.querySelector('.message-time').textContent = formatTime(timestamp);
+    
+    // Add attachments
+    const attachmentsContainer = messageElement.querySelector('.message-attachments');
+    attachments.forEach(attachment => {
+        const attachmentElement = document.createElement('div');
+        attachmentElement.className = 'file-preview';
+        attachmentElement.innerHTML = `<i class="fas fa-file me-1"></i>${attachment.name}`;
+        attachmentsContainer.appendChild(attachmentElement);
+    });
+    
+    document.getElementById('chat-messages').appendChild(messageElement);
+    scrollToBottom();
+}
+
+function addAssistantMessage(content, timestamp, model, isStreaming = false) {
+    const template = document.getElementById('assistant-message-template');
+    const messageElement = template.content.cloneNode(true);
+    
+    const messageDiv = messageElement.querySelector('.message');
+    const textElement = messageElement.querySelector('.message-text');
+    const timeElement = messageElement.querySelector('.message-time');
+    const modelElement = messageElement.querySelector('.model-name');
+    
+    if (isStreaming) {
+        textElement.className += ' streaming-text';
+    }
+    
+    textElement.textContent = content;
+    timeElement.textContent = formatTime(timestamp);
+    modelElement.textContent = model;
+    
+    document.getElementById('chat-messages').appendChild(messageElement);
+    scrollToBottom();
+    
+    return messageDiv;
+}
+
+function updateStreamingMessage(messageElement, content) {
+    const textElement = messageElement.querySelector('.message-text');
+    textElement.textContent = content;
+    scrollToBottom();
+}
+
+function finalizeStreamingMessage(messageElement, content) {
+    const textElement = messageElement.querySelector('.message-text');
+    textElement.classList.remove('streaming-text');
+    textElement.textContent = content;
+}
+
+function showTypingIndicator() {
+    document.getElementById('typing-indicator').classList.remove('d-none');
+    scrollToBottom();
+}
+
+function hideTypingIndicator() {
+    document.getElementById('typing-indicator').classList.add('d-none');
+}
+
+function scrollToBottom() {
+    const messagesContainer = document.getElementById('chat-messages');
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function formatTime(timestamp) {
+    return new Date(timestamp).toLocaleTimeString();
+}
+
+function toggleAttachments() {
+    const uploadArea = document.getElementById('file-upload-area');
+    const systemArea = document.getElementById('system-message-area');
+    
+    if (uploadArea.classList.contains('d-none')) {
+        uploadArea.classList.remove('d-none');
+        systemArea.classList.remove('d-none');
+    } else {
+        hideFileUploadArea();
+    }
+}
+
+function hideFileUploadArea() {
+    document.getElementById('file-upload-area').classList.add('d-none');
+    document.getElementById('system-message-area').classList.add('d-none');
+}
+
+function displayFilePreview() {
+    const fileInput = document.getElementById('file-input');
+    // File preview logic can be added here
+}
+
+function toggleSystemMessage() {
+    hideFileUploadArea();
+}
+
+function clearChat() {
+    if (confirm('Are you sure you want to clear this chat?')) {
+        messageHistory = [];
+        document.getElementById('chat-messages').innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-robot fa-3x mb-3 opacity-50"></i>
+                <p>Start a conversation with AI</p>
+                <small>Select a model and type your message below</small>
+            </div>
+        `;
+        
+        // Update session
+        updateChatSession();
+    }
+}
+
+function exportChat() {
+    const chatData = {
+        title: document.getElementById('chat-title').textContent,
+        model: currentModel,
+        messages: messageHistory,
+        exported: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat_${currentChatId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function copyMessage(button) {
+    const messageText = button.closest('.message-content').querySelector('.message-text').textContent;
+    navigator.clipboard.writeText(messageText);
+    
+    // Show feedback
+    const originalIcon = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => {
+        button.innerHTML = originalIcon;
+    }, 1000);
+}
+
+function regenerateMessage(button) {
+    const messageElement = button.closest('.message');
+    const messageIndex = Array.from(messageElement.parentNode.children).indexOf(messageElement);
+    
+    // Find the user message before this assistant message
+    const userMessage = messageHistory[messageIndex - 1];
+    if (userMessage && userMessage.role === 'user') {
+        // Remove the assistant message from history
+        messageHistory.splice(messageIndex, 1);
+        
+        // Remove the message element
+        messageElement.remove();
+        
+        // Resend the user message
+        sendToAPI(userMessage.content, '', userMessage.attachments || []);
+    }
+}
+
+function updateChatSession() {
+    if (!currentChatId) return;
+    
+    const session = chatSessions.find(s => s.id === currentChatId);
+    if (session) {
+        session.messages = messageHistory;
+        session.model = currentModel;
+        
+        // Update title based on first message
+        if (messageHistory.length > 0) {
+            const firstMessage = messageHistory.find(m => m.role === 'user');
+            if (firstMessage) {
+                session.title = firstMessage.content.substring(0, 50) + (firstMessage.content.length > 50 ? '...' : '');
+            }
+        }
+        
+        saveChatSessions();
+        renderChatSessions();
+    }
+}
+
+function loadChatSessions() {
+    const saved = localStorage.getItem('chatSessions');
+    if (saved) {
+        chatSessions = JSON.parse(saved);
+        renderChatSessions();
+    }
+}
+
+function saveChatSessions() {
+    localStorage.setItem('chatSessions', JSON.stringify(chatSessions));
+}
+
+function renderChatSessions() {
+    const container = document.getElementById('chat-sessions');
+    container.innerHTML = '';
+    
+    chatSessions.forEach(session => {
+        const template = document.getElementById('chat-session-template');
+        const sessionElement = template.content.cloneNode(true);
+        
+        const sessionDiv = sessionElement.querySelector('.chat-session');
+        sessionDiv.dataset.sessionId = session.id;
+        
+        sessionElement.querySelector('.session-title').textContent = session.title;
+        sessionElement.querySelector('.session-preview').textContent = `${session.messages.length} messages`;
+        
+        if (session.id === currentChatId) {
+            sessionDiv.classList.add('active');
+        }
+        
+        container.appendChild(sessionElement);
+    });
+}
+
+function deleteChatSession(button, event) {
+    event.stopPropagation();
+    
+    if (confirm('Are you sure you want to delete this chat session?')) {
+        const sessionElement = button.closest('.chat-session');
+        const sessionId = sessionElement.dataset.sessionId;
+        
+        // Remove from array
+        chatSessions = chatSessions.filter(s => s.id !== sessionId);
+        
+        // Remove from DOM
+        sessionElement.remove();
+        
+        // Save
+        saveChatSessions();
+        
+        // If this was the current chat, create a new one
+        if (sessionId === currentChatId) {
+            newChat();
+        }
+    }
+}
+
+function updateChatStatus() {
+    const statusElement = document.getElementById('chat-status');
+    if (currentModel) {
+        statusElement.textContent = `Using ${currentModel}`;
+    } else {
+        statusElement.textContent = 'No model selected';
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.querySelector('.chat-sidebar').parentElement;
+    sidebar.classList.toggle('d-none');
+}
+
+// Start with a new chat
+newChat();
+</script>
+{% endblock %}
