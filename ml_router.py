@@ -150,6 +150,7 @@ class MLEnhancedQueryRouter:
         self.agents: Dict[str, Agent] = {}
         self.ml_classifier = MLQueryClassifier(config)
         self.model_manager = model_manager
+        self.db = model_manager.db if model_manager else None
         
         # Caching
         self.cache = {}
@@ -174,10 +175,132 @@ class MLEnhancedQueryRouter:
         """Initialize the router and ML classifier"""
         await self.ml_classifier.initialize()
         
-        # Register some default agents for demo
-        await self.register_default_agents()
+        # Load agents from database or register defaults
+        self._load_agents_from_db()
+        if not self.agents:
+            await self.register_default_agents()
         
         logger.info("ML Enhanced Query Router initialized")
+        
+    def _load_agents_from_db(self):
+        """Load agents from database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import AgentRegistration
+            
+            db_agents = AgentRegistration.query.filter_by(is_active=True).all()
+            
+            for db_agent in db_agents:
+                # Convert string categories to QueryCategory enum
+                category_enums = []
+                for cat in db_agent.categories:
+                    try:
+                        category_enums.append(QueryCategory(cat.lower()))
+                    except ValueError:
+                        logger.warning(f"Invalid category: {cat}")
+                        continue
+                
+                agent = Agent(
+                    id=db_agent.id,
+                    name=db_agent.name,
+                    description=db_agent.description or "",
+                    endpoint=db_agent.endpoint,
+                    categories=category_enums,
+                    capabilities=db_agent.capabilities or {},
+                    meta_data=db_agent.meta_data or {}
+                )
+                
+                self.agents[agent.id] = agent
+            
+            logger.info(f"Loaded {len(db_agents)} agents from database")
+            
+        except Exception as e:
+            logger.error(f"Failed to load agents from database: {e}")
+    
+    def _save_agent_to_db(self, agent: Agent):
+        """Save agent to database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import AgentRegistration
+            
+            db_agent = AgentRegistration.query.get(agent.id)
+            
+            if db_agent:
+                # Update existing agent
+                db_agent.name = agent.name
+                db_agent.description = agent.description
+                db_agent.endpoint = agent.endpoint
+                db_agent.categories = [cat.value for cat in agent.categories]
+                db_agent.capabilities = agent.capabilities
+                db_agent.meta_data = agent.meta_data
+                db_agent.last_seen = datetime.utcnow()
+            else:
+                # Create new agent
+                db_agent = AgentRegistration(
+                    id=agent.id,
+                    name=agent.name,
+                    description=agent.description,
+                    endpoint=agent.endpoint,
+                    categories=[cat.value for cat in agent.categories],
+                    capabilities=agent.capabilities,
+                    meta_data=agent.meta_data,
+                    is_active=True
+                )
+                self.db.session.add(db_agent)
+            
+            self.db.session.commit()
+            
+        except Exception as e:
+            logger.error(f"Failed to save agent to database: {e}")
+            self.db.session.rollback()
+    
+    def _delete_agent_from_db(self, agent_id: str):
+        """Delete agent from database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import AgentRegistration
+            
+            db_agent = AgentRegistration.query.get(agent_id)
+            if db_agent:
+                db_agent.is_active = False
+                self.db.session.commit()
+                
+        except Exception as e:
+            logger.error(f"Failed to delete agent from database: {e}")
+            self.db.session.rollback()
+    
+    def _log_query_to_db(self, query: str, user_id: str, category: str, confidence: float, 
+                        agent_id: str, agent_name: str, status: str, response_time: float):
+        """Log query to database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import QueryLog
+            
+            query_log = QueryLog(
+                query=query,
+                user_id=user_id,
+                category=category,
+                confidence=confidence,
+                agent_id=agent_id,
+                agent_name=agent_name,
+                status=status,
+                response_time=response_time
+            )
+            
+            self.db.session.add(query_log)
+            self.db.session.commit()
+            
+        except Exception as e:
+            logger.error(f"Failed to log query to database: {e}")
+            self.db.session.rollback()
         
     async def register_default_agents(self):
         """Register default agents for demonstration"""
@@ -229,6 +352,7 @@ class MLEnhancedQueryRouter:
                 )
                 
                 self.agents[agent_id] = agent
+                self._save_agent_to_db(agent)
                 logger.info(f"Registered default agent: {agent_data['name']}")
                 
             except Exception as e:
@@ -253,6 +377,7 @@ class MLEnhancedQueryRouter:
             )
             
             self.agents[agent_id] = agent
+            self._save_agent_to_db(agent)
             logger.info(f"Registered agent: {name} ({agent_id})")
             
             return agent_id
@@ -325,8 +450,15 @@ class MLEnhancedQueryRouter:
             
             if result.get('status') == 'success':
                 self.successful_routes += 1
+                status = 'success'
             else:
                 self.failed_routes += 1
+                status = 'error'
+            
+            # Log query to database
+            self._log_query_to_db(query, user_id or 'anonymous', category.value, confidence, 
+                                selected_agent.id if selected_agent else None, 
+                                selected_agent.name if selected_agent else None, status, response_time)
             
             return result
             

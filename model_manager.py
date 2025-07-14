@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +62,112 @@ class MLModel:
 class ModelManager:
     """Manages ML models for query classification"""
     
-    def __init__(self):
+    def __init__(self, db=None):
+        self.db = db
         self.models: Dict[str, MLModel] = {}
         self.active_model_id: Optional[str] = None
-        self._initialize_default_models()
+        self._load_models_from_db()
+        if not self.models:
+            self._initialize_default_models()
     
+    def _load_models_from_db(self):
+        """Load models from database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import MLModelRegistry
+            
+            db_models = MLModelRegistry.query.all()
+            
+            for db_model in db_models:
+                model = MLModel(
+                    id=db_model.id,
+                    name=db_model.name,
+                    description=db_model.description or "",
+                    type=ModelType(db_model.model_type),
+                    categories=db_model.categories,
+                    config=db_model.config,
+                    status=ModelStatus(db_model.status),
+                    accuracy=db_model.accuracy,
+                    created_at=db_model.created_at,
+                    updated_at=db_model.updated_at,
+                    version=db_model.version,
+                    is_active=db_model.is_active
+                )
+                
+                self.models[model.id] = model
+                if model.is_active:
+                    self.active_model_id = model.id
+            
+            logger.info(f"Loaded {len(db_models)} models from database")
+            
+        except Exception as e:
+            logger.error(f"Failed to load models from database: {e}")
+
+    def _save_model_to_db(self, model: MLModel):
+        """Save model to database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import MLModelRegistry
+            
+            db_model = MLModelRegistry.query.get(model.id)
+            
+            if db_model:
+                # Update existing model
+                db_model.name = model.name
+                db_model.description = model.description
+                db_model.model_type = model.type.value
+                db_model.categories = model.categories
+                db_model.config = model.config
+                db_model.status = model.status.value
+                db_model.accuracy = model.accuracy
+                db_model.updated_at = model.updated_at
+                db_model.version = model.version
+                db_model.is_active = model.is_active
+            else:
+                # Create new model
+                db_model = MLModelRegistry(
+                    id=model.id,
+                    name=model.name,
+                    description=model.description,
+                    model_type=model.type.value,
+                    categories=model.categories,
+                    config=model.config,
+                    status=model.status.value,
+                    accuracy=model.accuracy,
+                    is_active=model.is_active,
+                    version=model.version,
+                    created_at=model.created_at,
+                    updated_at=model.updated_at
+                )
+                self.db.session.add(db_model)
+            
+            self.db.session.commit()
+            
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to save model to database: {e}")
+            self.db.session.rollback()
+
+    def _delete_model_from_db(self, model_id: str):
+        """Delete model from database"""
+        if not self.db:
+            return
+            
+        try:
+            from models import MLModelRegistry
+            
+            db_model = MLModelRegistry.query.get(model_id)
+            if db_model:
+                self.db.session.delete(db_model)
+                self.db.session.commit()
+                
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to delete model from database: {e}")
+            self.db.session.rollback()
+
     def _initialize_default_models(self):
         """Initialize default models"""
         try:
@@ -119,6 +221,7 @@ class ModelManager:
         )
         
         self.models[model_id] = model
+        self._save_model_to_db(model)
         logger.info(f"Created model: {name} ({model_id})")
         
         return model
@@ -156,6 +259,7 @@ class ModelManager:
         model.updated_at = datetime.now()
         model.version += 1
         
+        self._save_model_to_db(model)
         logger.info(f"Updated model: {model.name} ({model_id})")
         return model
     
@@ -169,6 +273,7 @@ class ModelManager:
                 return False
             
             del self.models[model_id]
+            self._delete_model_from_db(model_id)
             logger.info(f"Deleted model: {model.name} ({model_id})")
             return True
         return False
@@ -185,11 +290,13 @@ class ModelManager:
             if current_model:
                 current_model.is_active = False
                 current_model.status = ModelStatus.INACTIVE
+                self._save_model_to_db(current_model)
         
         # Activate new model
         model.is_active = True
         model.status = ModelStatus.ACTIVE
         self.active_model_id = model_id
+        self._save_model_to_db(model)
         
         logger.info(f"Activated model: {model.name} ({model_id})")
         return True

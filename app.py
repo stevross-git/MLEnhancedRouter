@@ -52,22 +52,20 @@ def initialize_router():
     global router, router_config, model_manager
     
     try:
-        router_config = EnhancedRouterConfig.from_env()
-        model_manager = ModelManager()
-        router = MLEnhancedQueryRouter(router_config, model_manager)
-        
-        # Initialize ML models
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(router.initialize())
-        
-        logger.info("ML Router initialized successfully")
+        with app.app_context():
+            router_config = EnhancedRouterConfig.from_env()
+            model_manager = ModelManager(db)
+            router = MLEnhancedQueryRouter(router_config, model_manager)
+            
+            # Initialize ML models
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(router.initialize())
+            
+            logger.info("ML Router initialized successfully")
     except Exception as e:
         logger.error(f"Failed to initialize ML Router: {e}")
         router = None
-
-# Initialize router in background thread
-threading.Thread(target=initialize_router, daemon=True).start()
 
 @app.route('/')
 def index():
@@ -427,6 +425,9 @@ def ratelimit_handler(e):
 with app.app_context():
     import models
     db.create_all()
+    
+    # Initialize router after models are imported
+    threading.Thread(target=initialize_router, daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
